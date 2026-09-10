@@ -1,0 +1,142 @@
+{
+  "id": "01a07455-935a-77ad-97a8-94f23a9f8522",
+  "name": "BrutalDash",
+  "version": "0.1.37",
+  "description": "BRUTALDASH: live PC performance control for your Car Thing. TELEMETRY: CPU, GPU, RAM, VRAM, disk, network, FPS and frametime. CONTROL: automatic game detection, alerts, session min/max values, custom layouts and vivid themes. MEDIA: album artwork, track information, progress and PC playback controls. Native Windows telemetry works out of the box; optional HWiNFO unlocks expanded sensors and richer hardware detail. OFFLINE: a customizable digital or analog clock when BridgeThing disconnects.",
+  "icon": "assets/brutalfoundry-icon.jpg",
+  "settings": "settings.html",
+  "config": [
+    {
+      "type": "enum",
+      "data": {
+        "key": "theme",
+        "label": "Theme preset",
+        "choices": [
+          "rog",
+          "nvidia",
+          "miami",
+          "aurora",
+          "synthwave",
+          "arctic",
+          "amber",
+          "oled"
+        ],
+        "default": "miami"
+      }
+    },
+    {
+      "type": "string",
+      "data": {
+        "key": "accent",
+        "label": "Custom accent color",
+        "pattern": "^#[0-9A-Fa-f]{6}$",
+        "minLength": 7,
+        "maxLength": 7,
+        "default": "#20f7e5"
+      }
+    },
+    {
+      "type": "number",
+      "data": {
+        "key": "brightness",
+        "label": "Dashboard brightness",
+        "min": 35,
+        "max": 120,
+        "step": 1,
+        "default": 100
+      }
+    },
+    {
+      "type": "number",
+      "data": {
+        "key": "glow",
+        "label": "Glow intensity",
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "default": 70
+      }
+    },
+    {
+      "type": "boolean",
+      "data": {
+        "key": "compact",
+        "label": "Compact layout",
+        "default": false
+      }
+    },
+    {
+      "type": "enum",
+      "data": {
+        "key": "layoutPreset",
+        "label": "Starting layout",
+        "choices": [
+          "four",
+          "rows",
+          "list",
+          "gaming",
+          "six",
+          "paged"
+        ],
+        "default": "four"
+      }
+    },
+    {
+      "type": "number",
+      "data": {
+        "key": "cpuAlert",
+        "label": "CPU temperature alert",
+        "min": 60,
+        "max": 110,
+        "step": 1,
+        "default": 90
+      }
+    },
+    {
+      "type": "number",
+      "data": {
+        "key": "gpuAlert",
+        "label": "GPU temperature alert",
+        "min": 60,
+        "max": 110,
+        "step": 1,
+        "default": 85
+      }
+    },
+    {
+      "type": "number",
+      "data": {
+        "key": "ramAlert",
+        "label": "RAM usage alert",
+        "min": 50,
+        "max": 100,
+        "step": 1,
+        "default": 92
+      }
+    },
+    {
+      "type": "string",
+      "data": {
+        "key": "dashboardState",
+        "label": "Dashboard state (managed by BrutalDash)",
+        "pattern": null,
+        "minLength": null,
+        "maxLength": 245760,
+        "default": null
+      }
+    }
+  ],
+  "permissions": [],
+  "art": {
+    "heroPx": 248,
+    "thumbPx": 96
+  },
+  "extension": {
+    "entry": "extension/desktop.mjs",
+    "permissions": [
+      "ffi",
+      "run"
+    ],
+    "api": 1
+  }
+}

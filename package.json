@@ -1,0 +1,43 @@
+{
+  "name": "brutaldash",
+  "private": true,
+  "version": "0.1.37",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:device": "vite --mode device",
+    "build:media-host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-media-host.ps1",
+    "build": "npm run build:media-host && vite build && vite build -c vite.settings.config.ts",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "shot": "node scripts/capture-device.mjs",
+    "push": "bun scripts/push.ts",
+    "share": "node scripts/share.ts",
+    "update": "bunx @bridgething/updater",
+    "test:button4": "deno run --allow-read scripts/verify-button4.ts",
+    "test:persistence": "deno run --allow-read scripts/verify-persistence.ts",
+    "test:unicode": "deno run --allow-run --allow-read scripts/verify-media-unicode.ts"
+  },
+  "dependencies": {
+    "@bridgething/client": "^0.12.1",
+    "@bridgething/extension": "^0.12.1",
+    "preact": "^10.29.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@msgpack/msgpack": "^3.1.3",
+    "@preact/preset-vite": "^2.10.5",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "deno": "2.9.6",
+    "esbuild": "^0.28.2",
+    "fflate": "^0.8.2",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

@@ -1,0 +1,15 @@
+node_modules
+dist
+.dev-extension
+.runtime-logs
+.agents
+.claude
+backups
+*.zip
+AGENTS.md
+CLAUDE.md
+qa/*.png
+qa/*.exe
+.DS_Store
+*.log
+.env*
