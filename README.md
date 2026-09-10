@@ -48,7 +48,7 @@ npm run share
 
 ## Validation
 
-The release workflow includes type checking plus targeted checks for Button 4 min/max reset behavior, Unicode media metadata, media controls, card swaps, clocks, game detection, and release packaging. Hardware and game-overlay behavior should additionally be checked on a real Car Thing and game before publishing a release.
+v0.1.37 was captured on a physical Car Thing in live telemetry, game/FPS, media drawer, clock, and customization modes. The public catalog was validated against BridgeThing’s schema and the published ZIP checksum.
 
 ## Third-party software
 
