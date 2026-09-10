@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0c0715">
+    <title>BrutalDash | BrutalFoundry</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #07070a; color: #f5f2ff; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: radial-gradient(circle at 10% 0%, #07393e 0, transparent 31rem), radial-gradient(circle at 89% 5%, #421337 0, transparent 35rem), #07070a; }
+      main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 58px 0 76px; }
+      .hero { display: grid; grid-template-columns: 118px 1fr; align-items: center; gap: 28px; margin-bottom: 40px; }
+      .logo { width: 118px; border-radius: 20px; box-shadow: 0 0 42px #2bdfdf55; }
+      h1 { margin: 0; font-size: clamp(2.7rem, 8vw, 5.5rem); line-height: .94; letter-spacing: -.075em; background: linear-gradient(100deg, #20f7e5 10%, #bce7ff 50%, #f75aa7 90%); color: transparent; background-clip: text; }
+      .eyebrow { color: #46f5e8; font-size: .78rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; margin: 0 0 12px; }
+      .lead { max-width: 760px; color: #ddd7e8; font-size: clamp(1.08rem, 2vw, 1.3rem); line-height: 1.6; margin: 20px 0 0; }
+      .links { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 48px; }
+      a.button { border: 1px solid #4ff1e4; border-radius: 10px; color: #071113; background: linear-gradient(100deg, #39ecdd, #eb7ab8); font-weight: 800; padding: 12px 16px; text-decoration: none; }
+      a.button.secondary { color: #f4f0fa; background: #171323; border-color: #6b5b80; }
+      section { margin-top: 42px; }
+      h2 { font-size: 1.35rem; letter-spacing: -.02em; margin: 0 0 16px; }
+      .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 12px; }
+      .feature { min-height: 128px; padding: 18px; border: 1px solid #38254c; border-radius: 14px; background: linear-gradient(140deg, #161023d9, #0e101adb); }
+      .feature strong { display: block; color: #52f2e5; letter-spacing: .04em; margin-bottom: 7px; }
+      .feature span { color: #d4cede; font-size: .95rem; line-height: 1.45; }
+      .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 15px; }
+      figure { margin: 0; border-radius: 16px; overflow: hidden; border: 1px solid #49375d; background: #100c18; }
+      figure img { width: 100%; display: block; aspect-ratio: 5 / 3; object-fit: cover; }
+      figcaption { padding: 11px 14px; color: #e7deef; font-size: .92rem; }
+      footer { color: #a69db1; margin-top: 42px; font-size: .88rem; }
+      code { color: #63f2e7; }
+      @media (max-width: 560px) { main { width: min(100% - 24px, 1120px); padding-top: 32px; } .hero { grid-template-columns: 74px 1fr; gap: 16px; } .logo { width: 74px; border-radius: 13px; } .shots { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <img class="logo" src="assets/brutalfoundry-icon.jpg" alt="BrutalFoundry logo">
+        <div>
+          <p class="eyebrow">BrutalFoundry presents</p>
+          <h1>BrutalDash</h1>
+          <p class="lead">Turn your Car Thing into a live PC performance command center. BrutalDash pairs native Windows telemetry and in-game FPS with configurable dashboards, PC media controls, and a useful clock when the PC is unavailable.</p>
+        </div>
+      </header>
+      <nav class="links" aria-label="BrutalDash links">
+        <a class="button" href="catalog.json">Open BridgeThing catalog</a>
+        <a class="button secondary" href="https://github.com/Brutal-BrutalFoundry/BrutalDash">View source on GitHub</a>
+        <a class="button secondary" href="https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.37">Download v0.1.37</a>
+      </nav>
+      <section>
+        <h2>What it does</h2>
+        <div class="features">
+          <div class="feature"><strong>LIVE TELEMETRY</strong><span>CPU, GPU, RAM, VRAM, disk and network readings, including session min and max values.</span></div>
+          <div class="feature"><strong>GAME READY</strong><span>Automatic game detection with FPS, frametime and 1% low monitoring through its bundled collector.</span></div>
+          <div class="feature"><strong>MAKE IT YOURS</strong><span>Layouts, card arrangements, themes, compact mode, alerts and saved dashboard settings.</span></div>
+          <div class="feature"><strong>PC MEDIA</strong><span>Artwork, track details, progress and Windows media controls in a compact drawer.</span></div>
+          <div class="feature"><strong>OPTIONAL HWiNFO</strong><span>Native Windows telemetry works out of the box. HWiNFO adds expanded sensor detail when available.</span></div>
+          <div class="feature"><strong>CLOCK MODE</strong><span>Digital and analog clock faces make the device useful even when it is disconnected.</span></div>
+        </div>
+      </section>
+      <section>
+        <h2>Running on a real Car Thing</h2>
+        <div class="shots">
+          <figure><img src="screenshots/01-main-dashboard.png" alt="BrutalDash live telemetry dashboard"><figcaption>Live dashboard with native and HWiNFO-backed telemetry.</figcaption></figure>
+          <figure><img src="screenshots/05-game-fps.png" alt="BrutalDash game and FPS display"><figcaption>Automatic game detection with live FPS and frametime.</figcaption></figure>
+          <figure><img src="screenshots/02-media-drawer.png" alt="BrutalDash media drawer"><figcaption>PC media drawer with artwork, progress and playback controls.</figcaption></figure>
+          <figure><img src="screenshots/04-customize-layouts.png" alt="BrutalDash layout customization"><figcaption>Layouts and card arrangement on the device.</figcaption></figure>
+          <figure><img src="screenshots/03-clock.png" alt="BrutalDash clock mode"><figcaption>Clock mode when the PC is unavailable.</figcaption></figure>
+        </div>
+      </section>
+      <footer>BrutalDash v0.1.37 · Requires BridgeThing lib <code>0.12.1</code> or newer.</footer>
+    </main>
+  </body>
+</html>

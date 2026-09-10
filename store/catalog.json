@@ -1,0 +1,48 @@
+{
+  "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
+  "schema": "catalog.v1",
+  "updated_at": "2026-09-10T08:49:45Z",
+  "repo": {
+    "name": "BrutalFoundry",
+    "description": "Independent software and device experiences by Brutal.",
+    "homepage": "https://github.com/Brutal-BrutalFoundry",
+    "icon": "https://brutal-brutalfoundry.github.io/BrutalDash/assets/brutalfoundry-icon.jpg"
+  },
+  "apps": [
+    {
+      "id": "01a07455-935a-77ad-97a8-94f23a9f8522",
+      "name": "BrutalDash",
+      "description": "A live PC performance command center for Car Thing with native telemetry, in-game FPS, customizable layouts, PC media controls, and a disconnected clock.",
+      "author": "BrutalFoundry",
+      "icon": "https://brutal-brutalfoundry.github.io/BrutalDash/assets/brutalfoundry-icon.jpg",
+      "screenshots": [
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/01-main-dashboard.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/02-media-drawer.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/03-clock.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/04-customize-layouts.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/05-game-fps.png"
+      ],
+      "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
+      "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
+      "versions": [
+        {
+          "version": "0.1.37",
+          "released_at": "2026-09-10T08:49:45Z",
+          "download": {
+            "url": "https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/download/v0.1.37/BrutalDash-0.1.37.zip",
+            "size": 1419296,
+            "sha256": "6ee2ce009b3b2603f06326e6d614cffeb9c03c4304b2cdb8408c6b228b4d3812"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": ["ffi", "run"]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "First public BrutalDash release. Native Windows telemetry, optional HWiNFO detail, bundled FPS monitoring, PC-native media controls, configurable dashboards, and clock mode."
+        }
+      ]
+    }
+  ],
+  "recommended_sources": []
+}

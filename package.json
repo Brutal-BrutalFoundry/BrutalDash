@@ -16,7 +16,8 @@
     "update": "bunx @bridgething/updater",
     "test:button4": "deno run --allow-read scripts/verify-button4.ts",
     "test:persistence": "deno run --allow-read scripts/verify-persistence.ts",
-    "test:unicode": "deno run --allow-run --allow-read scripts/verify-media-unicode.ts"
+    "test:unicode": "deno run --allow-run --allow-read scripts/verify-media-unicode.ts",
+    "test:catalog": "node scripts/validate-store-catalog.mjs"
   },
   "dependencies": {
     "@bridgething/client": "^0.12.1",
@@ -26,6 +27,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@bridgething/catalog": "^0.12.1",
     "@msgpack/msgpack": "^3.1.3",
     "@preact/preset-vite": "^2.10.5",
     "@tailwindcss/vite": "^4.3.3",
