@@ -1,5 +1,12 @@
 # pc-dashboard-bridgething
 
+## 0.1.40 - BrutalDash beta
+
+- Move downloadable BrutalDash packages out of the tracked source tree and serve them from GitHub Release assets instead.
+- Prevent GitHub source archives from recursively embedding historical BrutalDash release ZIPs.
+- Add Git ignore and Pages CI guards that reject tracked release ZIPs so the packaging mistake cannot silently recur.
+- Rebuild and verify the release from a clean checkout; application behavior is otherwise unchanged.
+
 ## 0.1.29 — BrutalDash beta
 
 - Restore BridgeThing's live song, artist, album artwork, playback state and progress feed.

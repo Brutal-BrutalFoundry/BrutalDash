@@ -25,6 +25,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Reject tracked release ZIPs
+        shell: bash
+        run: |
+          if git ls-files -- '*.zip' | grep -q .; then
+            echo "::error::Release ZIPs must be GitHub Release assets, not tracked in the source repository."
+            git ls-files -- '*.zip'
+            exit 1
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

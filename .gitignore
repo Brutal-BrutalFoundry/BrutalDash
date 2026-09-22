@@ -4,3 +4,5 @@ dist
 .DS_Store
 *.log
 .env*
+/BrutalDash-*.zip
+/store/downloads/*.zip
