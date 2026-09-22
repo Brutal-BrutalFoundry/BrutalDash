@@ -1392,6 +1392,8 @@ input:focus-visible {
   min-height: 0;
   padding: 0 15px 12px;
   overflow: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 .editor-help {
@@ -1407,11 +1409,49 @@ input:focus-visible {
   gap: 7px;
 }
 
+.clock-mode-picker {
+  display: grid;
+  gap: 7px;
+}
+
+.clock-mode-picker > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.clock-mode-picker > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.clock-mode-picker button {
+  min-height: 44px;
+  padding: 8px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font-weight: 800;
+  touch-action: manipulation;
+}
+
+.clock-mode-picker button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
 .card-control {
   padding: 7px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
   border-radius: 8px;
+  content-visibility: auto;
+  contain-intrinsic-size: 56px;
 }
 
 .card-control.is-hidden {
@@ -2082,6 +2122,11 @@ select {
   .dashboard.is-editing .editor-shell {
     background: var(--background);
     backdrop-filter: none;
+  }
+
+  .dashboard.is-editing .editor-shell,
+  .dashboard.is-editing .editor-panel {
+    animation: none;
   }
 
   .preset-picker button span,

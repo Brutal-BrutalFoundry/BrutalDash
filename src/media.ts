@@ -3,12 +3,8 @@ export function isMediaToggleKey(key: string, code: string, repeat: boolean) {
 }
 
 export function layoutSlotFromKey(key: string, code: string): number | null {
-  const match = /^(?:Digit)?([1-3])$/.exec(code || key);
+  const match = /^(?:Digit)?([1-4])$/.exec(code || key);
   return match ? Number(match[1]) - 1 : null;
-}
-
-export function isSessionResetButtonKey(key: string, code: string) {
-  return code === "Digit4" || key === "4";
 }
 
 export function mediaSwipeIntent(startY: number, endY: number, threshold = 42): "open" | "close" | null {

@@ -3,12 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import {
-  cloneLayoutProfiles,
+  clonePresetLayout,
   cloneLayoutSlots,
   dashboardUiRevision,
   defaultLayout,
   defaultPreferences,
-  layoutForPreset,
   metricKeys,
   type DashboardPreferences,
   type DashboardState,
@@ -20,7 +19,6 @@ import {
   type LayoutPreset,
   type MetricKey,
   type ThemeName,
-  withLayoutProfile,
 } from '../src/types';
 import './style.css';
 
@@ -61,13 +59,7 @@ function clonePreferences(preferences: DashboardPreferences): DashboardPreferenc
 }
 
 function defaultState(): DashboardState {
-  return {
-    layout: cloneLayout(defaultLayout),
-    preferences: clonePreferences(defaultPreferences),
-    layoutSlots: cloneLayoutSlots(),
-    layoutProfiles: { four: cloneLayout(defaultLayout) },
-    uiRevision: dashboardUiRevision,
-  };
+  return { layout: cloneLayout(defaultLayout), preferences: clonePreferences(defaultPreferences), layoutSlots: cloneLayoutSlots(), uiRevision: dashboardUiRevision };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -104,12 +96,9 @@ function parseState(value: string | null | undefined): DashboardState | null {
       } satisfies LayoutItem];
     });
     if (!layout.length) return null;
-    const layoutProfiles = cloneLayoutProfiles(parsed.layoutProfiles);
-    layoutProfiles[preferences.layoutPreset as LayoutPreset] = cloneLayout(layout);
     return {
       layout,
       layoutSlots: cloneLayoutSlots(parsed.layoutSlots),
-      layoutProfiles,
       preferences: {
         ...clonePreferences(defaultPreferences),
         ...preferences,
@@ -171,25 +160,14 @@ function Settings() {
 
   const layout = state.layout;
   const preferences = state.preferences;
-  const encoded = useMemo(() => {
-    const layoutProfiles = withLayoutProfile(state.layoutProfiles, state.preferences.layoutPreset, state.layout);
-    return JSON.stringify({ ...state, layoutProfiles, uiRevision: dashboardUiRevision });
-  }, [state]);
+  const encoded = useMemo(() => JSON.stringify({ ...state, uiRevision: dashboardUiRevision }), [state]);
 
   function setPreference(update: Partial<DashboardPreferences>) {
     setState(current => ({ ...current, preferences: { ...current.preferences, ...update } }));
   }
 
   function choosePreset(layoutPreset: LayoutPreset) {
-    setState(current => {
-      const layoutProfiles = withLayoutProfile(current.layoutProfiles, current.preferences.layoutPreset, current.layout);
-      return {
-        ...current,
-        layout: layoutForPreset(layoutProfiles, layoutPreset),
-        layoutProfiles,
-        preferences: { ...current.preferences, layoutPreset },
-      };
-    });
+    setState(current => ({ ...current, layout: clonePresetLayout(layoutPreset), preferences: { ...current.preferences, layoutPreset } }));
   }
 
   function updateCard(id: string, update: Partial<LayoutItem>) {
@@ -284,16 +262,6 @@ function Settings() {
         {preferences.clockColorMode === 'custom' && <label className="field"><span>Clock color</span><span className="color-row"><input type="color" value={preferences.clockColor} onChange={event => setPreference({ clockColor: event.target.value })} /><code>{preferences.clockColor.toUpperCase()}</code></span></label>}
         <label className="check"><input type="checkbox" checked={preferences.clockShowDate} onChange={event => setPreference({ clockShowDate: event.target.checked })} /> Show day and date</label>
       </div>
-    </section>
-
-    <section>
-      <h2>Button 4 — Reset session min/max</h2>
-      <p className="hint">Buttons 1–3 save and recall layouts. Press Button 4 to clear the current session’s minimum and maximum readings; the next live sample starts the new range.</p>
-    </section>
-
-    <section>
-      <h2>Optional HWiNFO integration</h2>
-      <p className="hint">BrutalDash attaches automatically when HWiNFO Shared Memory is enabled and Sensor Status is active. Use Sensors-only with Minimize Sensors enabled; do not use Summary-only, which does not start sensor data. Native telemetry remains available without HWiNFO.</p>
     </section>
 
     <section>

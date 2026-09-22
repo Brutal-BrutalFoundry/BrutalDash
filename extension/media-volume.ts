@@ -96,17 +96,6 @@ export async function sendWindowsMediaCommand(command: 'previous' | 'playPause' 
   catch { return false; }
 }
 
-/** Test-only helper command: proves Unicode survives the native process pipe. */
-export async function verifyUnicodeMediaTransport(): Promise<WindowsMediaSnapshot> {
-  const result = await invoke(['--verify-unicode']);
-  if (!result) return { ok: false, error: 'Windows media helper is unavailable', source: null, title: null, artist: null, album: null, playback: null, positionMs: 0, durationMs: 0, artwork: null };
-  try {
-    return JSON.parse(decoder.decode(result.output)) as WindowsMediaSnapshot;
-  } catch {
-    return { ok: false, error: result.error || `Windows media helper exited with code ${result.code}`, source: null, title: null, artist: null, album: null, playback: null, positionMs: 0, durationMs: 0, artwork: null };
-  }
-}
-
 /**
  * Changes only the Core Audio session whose process matches the media source
  * hint. It never falls back to endpoint/master volume or a phone API.

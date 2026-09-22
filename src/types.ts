@@ -117,20 +117,14 @@ export type LayoutSlot = {
   compact: boolean;
 };
 
-// Each built-in layout is a separately saved workspace.  `layout` remains the
-// active workspace for backward compatibility with earlier exported files.
-export type LayoutProfiles = Partial<Record<LayoutPreset, LayoutItem[]>>;
-
 export type DashboardState = {
   layout: LayoutItem[];
   preferences: DashboardPreferences;
   layoutSlots?: Array<LayoutSlot | null>;
-  layoutProfiles?: LayoutProfiles;
   uiRevision?: number;
 };
 
-// Hardware buttons 1-3 are layout slots. Button 4 resets session min/max readings.
-export const emptyLayoutSlots = (): Array<LayoutSlot | null> => [null, null, null];
+export const emptyLayoutSlots = (): Array<LayoutSlot | null> => [null, null, null, null];
 
 export function cloneLayoutSlots(slots?: Array<LayoutSlot | null>): Array<LayoutSlot | null> {
   return emptyLayoutSlots().map((_, index) => {
@@ -250,33 +244,7 @@ export function clonePresetLayout(preset: LayoutPreset): LayoutItem[] {
   return presetLayouts[preset].map((item) => ({ ...item, details: [...item.details] }));
 }
 
-export function cloneLayoutProfiles(profiles?: LayoutProfiles): LayoutProfiles {
-  const cloned: LayoutProfiles = {};
-  for (const preset of Object.keys(presetLayouts) as LayoutPreset[]) {
-    const layout = profiles?.[preset];
-    if (Array.isArray(layout) && layout.length) {
-      cloned[preset] = layout.map(item => ({ ...item, details: [...item.details] }));
-    }
-  }
-  return cloned;
-}
-
-export function layoutForPreset(profiles: LayoutProfiles | undefined, preset: LayoutPreset): LayoutItem[] {
-  const saved = profiles?.[preset];
-  return Array.isArray(saved) && saved.length
-    ? saved.map(item => ({ ...item, details: [...item.details] }))
-    : clonePresetLayout(preset);
-}
-
-export function withLayoutProfile(
-  profiles: LayoutProfiles | undefined,
-  preset: LayoutPreset,
-  layout: LayoutItem[],
-): LayoutProfiles {
-  return { ...cloneLayoutProfiles(profiles), [preset]: layout.map(item => ({ ...item, details: [...item.details] })) };
-}
-
-export const dashboardUiRevision = 8;
+export const dashboardUiRevision = 6;
 export const defaultLayout: LayoutItem[] = clonePresetLayout("four");
 
 export const defaultPreferences: DashboardPreferences = {

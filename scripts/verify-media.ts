@@ -1,6 +1,5 @@
 import {
   isMediaToggleKey,
-  isSessionResetButtonKey,
   layoutSlotFromKey,
   mediaSwipeIntent,
   playbackProgress,
@@ -20,8 +19,7 @@ const checks = [
   isMediaToggleKey('Escape', 'Escape', false) === true,
   isMediaToggleKey('Escape', 'Escape', true) === false,
   layoutSlotFromKey('1', 'Digit1') === 0,
-  layoutSlotFromKey('4', 'Digit4') === null,
-  isSessionResetButtonKey('4', 'Digit4') === true,
+  layoutSlotFromKey('4', 'Digit4') === 3,
   layoutSlotFromKey('m', 'KeyM') === null,
   mediaSwipeIntent(470, 410) === 'open',
   mediaSwipeIntent(410, 470) === 'close',
@@ -45,7 +43,6 @@ const checks = [
   !/client\.audio\./.test(appSource),
   appSource.includes('type: "media:volume"'),
   extensionSource.includes("type: 'media:volume'"),
-  extensionSource.includes("type: 'metrics:reset-ranges'"),
   volumeSource.includes('never falls back to endpoint/master volume or a phone API'),
 ];
 

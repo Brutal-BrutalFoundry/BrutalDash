@@ -1,10 +1,5 @@
 # pc-dashboard-bridgething
 
-## 0.1.37
-
-- Add complete installation, feature, control, and troubleshooting documentation for the first BrutalFoundry release.
-- Improve the catalog copy's scanability with structured capability labels.
-
 ## 0.1.29 — BrutalDash beta
 
 - Restore BridgeThing's live song, artist, album artwork, playback state and progress feed.

@@ -1,4 +1,3 @@
-import './early-detach';
 import { asJson, defineExtension, json, type ExtensionContext } from '@bridgething/extension';
 import { readForegroundApp, type ForegroundApp } from './foreground';
 import { detectedGame, foregroundPacket, fpsCaptureTarget, gameCandidate, processFileName } from './game';
@@ -10,24 +9,22 @@ import { readNvidiaGpuMetrics } from './nvidia';
 import { PresentMonProvider } from './presentmon';
 import { readFixedDriveSpace, type StorageSpace } from './storage';
 import { readWindowsGpuMetrics } from './windows-gpu';
-import { MetricRangeTracker } from './metric-ranges';
+import { detachBridgeThingConsole } from './windows-console';
 import type { SystemMediaCommand } from './media-controls';
 import { adjustActiveMediaVolume, readWindowsMediaSnapshot, sendWindowsMediaCommand } from './media-volume';
 
 import {
-  cloneLayoutProfiles,
+  clonePresetLayout,
   cloneLayoutSlots,
   dashboardUiRevision,
   defaultLayout,
   defaultPreferences,
-  layoutForPreset,
   metricKeys,
   type DashboardAlert,
   type DashboardPacket,
   type DashboardPreferences,
   type DashboardState,
   type LayoutItem,
-  type LayoutProfiles,
   type LayoutPreset,
   type MetricKey,
   type MetricValue,
@@ -35,20 +32,28 @@ import {
   type ThemeName,
 } from '../src/types';
 
+declare const Deno: {
+  serve(
+    options: { hostname: string; port: number; onListen(): void },
+    handler: (request: Request) => Response | Promise<Response>,
+  ): { shutdown(): Promise<void> };
+  upgradeWebSocket(request: Request): { socket: WebSocket; response: Response };
+};
+
 type DashboardMessage =
   | { type: 'dashboard:get' }
-  | { type: 'dashboard:save'; payload: DashboardState; saveId?: string }
+  | { type: 'dashboard:save'; payload: DashboardState }
   | { type: 'media:subscribe'; payload: { active: boolean } }
   | { type: 'media:command'; payload: { command: SystemMediaCommand } }
   | { type: 'media:volume'; payload: { delta: number; source: string | null } }
-  | { type: 'metrics:reset-ranges' };
+  | { type: 'mirror:input'; payload: unknown };
 
 // The device needs responsive, near-live telemetry. The in-flight guard below
 // prevents a slow HWiNFO read from stacking up behind this 500 ms cadence.
 const POLL_INTERVAL_MS = 500;
 const STORAGE_REFRESH_MS = 30_000;
 const STATE_KEY_PREFIX = 'dashboard-state:';
-const metricRanges = new MetricRangeTracker();
+const metricRanges = new Map<MetricKey, { min: number; max: number }>();
 const states = new Map<string, DashboardState>();
 let latest: Omit<DashboardPacket, 'alerts'> | null = null;
 let polling = false;
@@ -65,8 +70,75 @@ let mediaTimer: ReturnType<typeof setInterval> | undefined;
 let mediaPolling = false;
 let mediaArtworkKey = '';
 let mediaArtwork: string | null = null;
+const mirrorClients = new Set<WebSocket>();
+let mirrorServer: { shutdown(): Promise<void> } | null = null;
 
 const GAME_RETENTION_MS = 15_000;
+
+detachBridgeThingConsole();
+
+function mirrorBroadcast(message: unknown) {
+  const body = JSON.stringify(message);
+  for (const socket of mirrorClients) {
+    if (socket.readyState !== WebSocket.OPEN) continue;
+    try { socket.send(body); } catch { mirrorClients.delete(socket); }
+  }
+}
+
+function primaryDeviceId(ctx: ExtensionContext) {
+  return ctx.devices.find(device => device.active)?.id
+    ?? ctx.devices.find(device => device.connected)?.id
+    ?? states.keys().next().value as string | undefined;
+}
+
+function setMirrorControl(ctx: ExtensionContext, active: boolean) {
+  for (const device of ctx.devices) {
+    if (device.active) device.send(json({ type: 'mirror:control', payload: { active } }));
+  }
+}
+
+function sendMirrorSnapshot(ctx: ExtensionContext, socket: WebSocket) {
+  const deviceId = primaryDeviceId(ctx);
+  if (!deviceId) return;
+  const state = states.get(deviceId);
+  if (!state) return;
+  socket.send(JSON.stringify({ type: 'dashboard:state', payload: state }));
+  socket.send(JSON.stringify({ type: 'dashboard:data', payload: packetFor(state) }));
+}
+
+function startMirrorServer(ctx: ExtensionContext) {
+  try {
+    mirrorServer = Deno.serve({ hostname: '127.0.0.1', port: 8894, onListen() {} }, request => {
+    if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') {
+      return Response.json({ ready: true, render: 'desktop', videoFromDevice: false, audio: false });
+    }
+    const { socket, response } = Deno.upgradeWebSocket(request);
+    socket.onopen = () => {
+      mirrorClients.add(socket);
+      setMirrorControl(ctx, true);
+      sendMirrorSnapshot(ctx, socket);
+    };
+    socket.onmessage = event => {
+      try {
+        const message = JSON.parse(String(event.data)) as DashboardMessage;
+        if (message.type === 'dashboard:get') sendMirrorSnapshot(ctx, socket);
+        if (message.type === 'media:subscribe' && message.payload.active) void pollMedia(ctx);
+      } catch {
+        ctx.log.warn('Ignored malformed local recorder message');
+      }
+    };
+    const remove = () => {
+      mirrorClients.delete(socket);
+      if (mirrorClients.size === 0) setMirrorControl(ctx, false);
+    };
+    socket.onclose = remove;
+    socket.onerror = remove;
+    return response;
+    });
+  } catch (error) {
+    ctx.log.warn(`Local recording mirror unavailable: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 const finite = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -94,13 +166,7 @@ function clonePreferences(preferences: DashboardPreferences): DashboardPreferenc
 }
 
 function defaultState(): DashboardState {
-  return {
-    layout: cloneLayout(defaultLayout),
-    preferences: clonePreferences(defaultPreferences),
-    layoutSlots: cloneLayoutSlots(),
-    layoutProfiles: { four: cloneLayout(defaultLayout) },
-    uiRevision: dashboardUiRevision,
-  };
+  return { layout: cloneLayout(defaultLayout), preferences: clonePreferences(defaultPreferences), layoutSlots: cloneLayoutSlots(), uiRevision: dashboardUiRevision };
 }
 
 function stateKey(deviceId: string) {
@@ -126,16 +192,6 @@ function validLayout(layout: unknown): layout is LayoutItem[] {
   });
 }
 
-function validLayoutProfiles(value: unknown): LayoutProfiles {
-  if (!value || typeof value !== 'object') return {};
-  const profiles: LayoutProfiles = {};
-  for (const preset of layoutPresets) {
-    const layout = (value as Partial<Record<LayoutPreset, unknown>>)[preset];
-    if (validLayout(layout)) profiles[preset] = cloneLayout(layout);
-  }
-  return profiles;
-}
-
 function validState(value: unknown): DashboardState | null {
   if (!value || typeof value !== 'object') return null;
   const candidate = value as Partial<DashboardState>;
@@ -146,15 +202,9 @@ function validState(value: unknown): DashboardState | null {
     ? [...new Set(input.filter((entry): entry is string => typeof entry === 'string').map(normalizeProcessName).filter(Boolean))].slice(0, 100)
     : [];
   const gameInclude = processList(preferences.gameInclude);
-  const layout = cloneLayout(candidate.layout);
-  const layoutProfiles = validLayoutProfiles(candidate.layoutProfiles);
-  // Migrate every earlier saved dashboard into a profile for its active layout.
-  // The active layout is authoritative if an old profile and active layout disagree.
-  layoutProfiles[preferences.layoutPreset as LayoutPreset] = cloneLayout(layout);
   return {
-    layout,
+    layout: cloneLayout(candidate.layout),
     layoutSlots: cloneLayoutSlots(candidate.layoutSlots),
-    layoutProfiles: cloneLayoutProfiles(layoutProfiles),
     preferences: {
       ...clonePreferences(defaultPreferences),
       ...preferences,
@@ -200,12 +250,7 @@ function stateFromConfig(state: DashboardState, config: Readonly<Record<string, 
   if (changedKey === 'compact' && (raw === 'true' || raw === 'false')) preferences.compact = raw === 'true';
   if (changedKey === 'layoutPreset' && layoutPresets.has(raw as LayoutPreset)) {
     preferences.layoutPreset = raw as LayoutPreset;
-    return {
-      ...state,
-      layout: layoutForPreset(state.layoutProfiles, preferences.layoutPreset),
-      preferences,
-      uiRevision: dashboardUiRevision,
-    };
+    return { ...state, layout: clonePresetLayout(preferences.layoutPreset), preferences, uiRevision: dashboardUiRevision };
   }
   if (changedKey === 'cpuAlert' || changedKey === 'gpuAlert' || changedKey === 'ramAlert') {
     const value = Number(raw);
@@ -363,7 +408,19 @@ function blankMetrics(): TelemetryMetrics {
 }
 
 function applyRanges(metrics: TelemetryMetrics) {
-  metricRanges.apply(metrics);
+  for (const key of metricKeys) {
+    const value = finite(metrics[key].value);
+    const range = metricRanges.get(key);
+    if (value !== null) {
+      const next = range ? { min: Math.min(range.min, value), max: Math.max(range.max, value) } : { min: value, max: value };
+      metricRanges.set(key, next);
+      metrics[key].min = next.min;
+      metrics[key].max = next.max;
+    } else if (range) {
+      metrics[key].min = range.min;
+      metrics[key].max = range.max;
+    }
+  }
 }
 
 function alerts(metrics: TelemetryMetrics, preferences: DashboardPreferences): DashboardAlert[] {
@@ -444,7 +501,7 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
     clock: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(now)),
     pcTimeOffsetMinutes: new Date(now).getTimezoneOffset(),
     source: 'native', fpsSource: frames ? 'presentmon' : null, connected: true,
-    telemetryMessage: 'Using native telemetry. HWiNFO attaches automatically when Shared Memory and Sensor Status are active; Summary-only does not start sensors.',
+    telemetryMessage: 'Using native telemetry. To switch to HWiNFO automatically, keep HWiNFO Sensors active (they may be minimized).',
     cpuName: readProcessorName() || 'Windows system', gpuName: nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU data unavailable'), game: game?.label || null, foreground: foregroundPacket(foreground),
     capacities: { ramGb: native?.ramTotalGb ?? null, vramGb: nvidia?.vramTotalGb ?? null, storageGb: storage?.totalGb ?? null },
     metrics,
@@ -553,6 +610,9 @@ async function poll(ctx: ExtensionContext) {
       const state = states.get(device.id);
       if (device.active && state) device.send(json({ type: 'dashboard:data', payload: packetFor(state) }));
     }
+    const mirrorDeviceId = primaryDeviceId(ctx);
+    const mirrorState = mirrorDeviceId ? states.get(mirrorDeviceId) : null;
+    if (mirrorState) mirrorBroadcast({ type: 'dashboard:data', payload: packetFor(mirrorState) });
   } catch (error) {
     if (hwinfoAvailable !== false) ctx.log.warn(`HWiNFO shared memory unavailable: ${error instanceof Error ? error.message : String(error)}`);
     hwinfoAvailable = false;
@@ -564,6 +624,9 @@ async function poll(ctx: ExtensionContext) {
           const state = states.get(device.id);
           if (device.active && state) device.send(json({ type: 'dashboard:data', payload: packetFor(state) }));
         }
+        const mirrorDeviceId = primaryDeviceId(ctx);
+        const mirrorState = mirrorDeviceId ? states.get(mirrorDeviceId) : null;
+        if (mirrorState) mirrorBroadcast({ type: 'dashboard:data', payload: packetFor(mirrorState) });
       } else {
         // Keep the last successful timestamp intact. The client can then label the
         // numbers stale instead of presenting a frozen sample as current telemetry.
@@ -580,13 +643,10 @@ async function poll(ctx: ExtensionContext) {
 
 async function loadState(ctx: ExtensionContext, deviceId: string) {
   const saved = await ctx.kv.get<DashboardState>(stateKey(deviceId));
-  const restored = validState(saved);
-  // The extension KV is the only canonical record once it exists.  A settings
-  // page can contain an older dashboardState document, so it must only seed a
-  // brand-new installation rather than overwrite the latest saved layout.
-  const state = restored || stateFromConfig(defaultState(), ctx.config(deviceId));
-  states.set(deviceId, state);
-  return state;
+  const state = validState(saved) || defaultState();
+  const configured = stateFromConfig(state, ctx.config(deviceId));
+  states.set(deviceId, configured);
+  return configured;
 }
 
 async function sendState(ctx: ExtensionContext, deviceId: string) {
@@ -594,6 +654,10 @@ async function sendState(ctx: ExtensionContext, deviceId: string) {
   const state = states.get(deviceId) || await loadState(ctx, deviceId);
   device.send(json({ type: 'dashboard:state', payload: state }));
   device.send(json({ type: 'dashboard:data', payload: packetFor(state) }));
+  if (deviceId === primaryDeviceId(ctx)) {
+    mirrorBroadcast({ type: 'dashboard:state', payload: state });
+    mirrorBroadcast({ type: 'dashboard:data', payload: packetFor(state) });
+  }
 }
 
 async function pollMedia(ctx: ExtensionContext) {
@@ -609,6 +673,7 @@ async function pollMedia(ctx: ExtensionContext) {
         const device = ctx.device(deviceId);
         if (device.active) device.send(json({ type: 'media:data', payload: snapshot }));
       }
+      mirrorBroadcast({ type: 'media:data', payload: snapshot });
       const withArtwork = await readWindowsMediaSnapshot(true);
       if (withArtwork.ok) snapshot = withArtwork;
       mediaArtworkKey = artworkKey;
@@ -623,6 +688,7 @@ async function pollMedia(ctx: ExtensionContext) {
       const device = ctx.device(deviceId);
       if (device.active) device.send(json({ type: 'media:data', payload: snapshot }));
     }
+    mirrorBroadcast({ type: 'media:data', payload: snapshot });
   } finally {
     mediaPolling = false;
   }
@@ -630,6 +696,7 @@ async function pollMedia(ctx: ExtensionContext) {
 
 defineExtension({
   start(ctx) {
+    startMirrorServer(ctx);
     nativeFps = new PresentMonProvider({
       info: message => ctx.log.info(message),
       warn: message => ctx.log.warn(message),
@@ -640,11 +707,18 @@ defineExtension({
       // inactive would be dropped by the BridgeThing host.
       if (event.type === 'connected' || (event.type === 'active' && event.device.active)) {
         void sendState(ctx, event.device.id).catch(error => ctx.log.error('state send failed', error));
+        if (mirrorClients.size > 0 && event.device.active) {
+          event.device.send(json({ type: 'mirror:control', payload: { active: true } }));
+        }
       }
     });
     ctx.on('message', (device, message) => {
       const payload = asJson<DashboardMessage>(message);
       if (!payload) return;
+      if (payload.type === 'mirror:input') {
+        if (mirrorClients.size > 0) mirrorBroadcast(payload);
+        return;
+      }
       if (payload.type === 'media:command') {
         void sendWindowsMediaCommand(payload.payload.command).then(ok => {
           if (!ok) ctx.log.warn('Windows media control unavailable');
@@ -669,28 +743,12 @@ defineExtension({
         }).catch(error => ctx.log.warn(`PC media volume failed: ${error instanceof Error ? error.message : String(error)}`));
         return;
       }
-      if (payload.type === 'metrics:reset-ranges') {
-        metricRanges.clear();
-        void sendState(ctx, device.id).catch(error => ctx.log.error('min/max reset state send failed', error));
-        return;
-      }
       if (payload.type === 'dashboard:get') void sendState(ctx, device.id).catch(error => ctx.log.error('dashboard request failed', error));
       if (payload.type === 'dashboard:save' && payload.payload && Array.isArray(payload.payload.layout) && payload.payload.preferences) {
-        const next = validState(payload.payload);
-        if (!next) {
-          device.send(json({ type: 'dashboard:save-failed', payload: { saveId: payload.saveId, message: 'Dashboard data was invalid' } }));
-          return;
-        }
-        states.set(device.id, next);
-        void ctx.kv.set(stateKey(device.id), next)
-          .then(() => {
-            device.send(json({ type: 'dashboard:saved', payload: { saveId: payload.saveId } }));
-            return sendState(ctx, device.id);
-          })
-          .catch(error => {
-            ctx.log.error('dashboard save failed', error);
-            device.send(json({ type: 'dashboard:save-failed', payload: { saveId: payload.saveId, message: 'BridgeThing could not write the dashboard' } }));
-          });
+        states.set(device.id, payload.payload);
+        void ctx.kv.set(stateKey(device.id), payload.payload)
+          .then(() => sendState(ctx, device.id))
+          .catch(error => ctx.log.error('dashboard save failed', error));
       }
     });
     ctx.on('config', (device, key, value) => {
@@ -715,5 +773,9 @@ defineExtension({
     mediaSubscribers.clear();
     nativeFps?.stop();
     nativeFps = null;
+    for (const socket of mirrorClients) socket.close(1001, 'BrutalDash extension stopping');
+    mirrorClients.clear();
+    void mirrorServer?.shutdown();
+    mirrorServer = null;
   },
 });

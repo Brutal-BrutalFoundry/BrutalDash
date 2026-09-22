@@ -9,8 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Text;
-using System.Text.RegularExpressions;
 using Windows.Media.Control;
 
 // Hidden Windows helper for PC-native now-playing state, transport, artwork,
@@ -25,11 +23,6 @@ internal static class BrutalDashMediaHost
         try
         {
             var request = Request.Parse(args);
-            if (request.VerifyUnicode)
-            {
-                WriteMedia(true, null, "Spotify", "Beyonc\u00e9 \u00d8resund", "\u041f\u0440\u0438\u0432\u0435\u0442 \u65e5\u672c\u8a9e", "\ud83d\udc97", "paused", 0, 0, null);
-                return 0;
-            }
             if (request.Snapshot || request.Command != null)
             {
                 var manager = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().GetAwaiter().GetResult();
@@ -85,7 +78,7 @@ internal static class BrutalDashMediaHost
                                 var jpeg = ImageCodecInfo.GetImageEncoders().First(codec => codec.MimeType == "image/jpeg");
                                 using (var parameters = new EncoderParameters(1))
                                 {
-                                    parameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 85L);
+                                    parameters.Param[0] = new EncoderParameter(Encoder.Quality, 85L);
                                     thumbnail.Save(output, jpeg, parameters);
                                 }
                             }
@@ -250,30 +243,7 @@ internal static class BrutalDashMediaHost
     private static string Json(string value)
     {
         if (value == null) return "null";
-        // The Deno extension consumes this process pipe as UTF-8, while Windows
-        // console output can still use an OEM code page. Escaping every non-ASCII
-        // UTF-16 unit keeps titles in every language lossless through that pipe.
-        var json = new StringBuilder(value.Length + 8);
-        json.Append('"');
-        foreach (var character in value)
-        {
-            switch (character)
-            {
-                case '\\': json.Append("\\\\"); break;
-                case '"': json.Append("\\\""); break;
-                case '\b': json.Append("\\b"); break;
-                case '\f': json.Append("\\f"); break;
-                case '\n': json.Append("\\n"); break;
-                case '\r': json.Append("\\r"); break;
-                case '\t': json.Append("\\t"); break;
-                default:
-                    if (character < 0x20 || character > 0x7e) json.Append("\\u").Append(((int)character).ToString("X4", CultureInfo.InvariantCulture));
-                    else json.Append(character);
-                    break;
-            }
-        }
-        json.Append('"');
-        return json.ToString();
+        return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n") + "\"";
     }
 
     private sealed class AudioSession
@@ -296,7 +266,6 @@ internal static class BrutalDashMediaHost
         internal bool Snapshot;
         internal bool IncludeArtwork;
         internal string Command;
-        internal bool VerifyUnicode;
         internal static Request Parse(string[] args)
         {
             var request = new Request();
@@ -305,7 +274,6 @@ internal static class BrutalDashMediaHost
                 if (args[index] == "--hint" && index + 1 < args.Length) request.Hint = args[++index];
                 if (args[index] == "--snapshot") request.Snapshot = true;
                 if (args[index] == "--artwork") request.IncludeArtwork = true;
-                if (args[index] == "--verify-unicode") request.VerifyUnicode = true;
                 if (args[index] == "--command" && index + 1 < args.Length) request.Command = args[++index];
                 if (args[index] == "--delta" && index + 1 < args.Length)
                 {

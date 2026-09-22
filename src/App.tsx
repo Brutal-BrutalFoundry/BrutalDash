@@ -5,22 +5,20 @@ import manifest from "../public/manifest.json";
 import "./index.css";
 import { pcClockDate, shouldShowClock } from "./clock";
 import { daemonUrl } from "./daemon";
+import { installDeviceInputForwarder, isRecordingMirror, recordingClient } from "./recording-mirror";
 import {
   isMediaToggleKey,
-  isSessionResetButtonKey,
   layoutSlotFromKey,
   playbackProgress,
   unavailableMetricMessage,
   wheelDirection,
 } from "./media";
 import {
-  cloneLayoutProfiles,
   clonePresetLayout,
   cloneLayoutSlots,
   dashboardUiRevision,
   defaultLayout,
   defaultPreferences,
-  layoutForPreset,
   metricKeys,
   swapLayoutSlots,
   type DashboardPacket,
@@ -31,12 +29,10 @@ import {
   type ClockFormat,
   type ClockMode,
   type LayoutItem,
-  type LayoutProfiles,
   type LayoutSlot,
   type LayoutPreset,
   type MetricKey,
   type ThemeName,
-  withLayoutProfile,
 } from "./types";
 
 const appVersion = packageJson.version;
@@ -259,15 +255,14 @@ function isLayoutPreset(value: unknown): value is LayoutPreset {
 }
 
 function App() {
-  const client = useMemo(() => new BridgethingClient({ url: daemonUrl() }), []);
+  const mirrorMode = isRecordingMirror();
+  const client = useMemo(() => mirrorMode ? recordingClient() : new BridgethingClient({ url: daemonUrl() }), [mirrorMode]);
   const [packet, setPacket] = useState(previewPacket);
   const [layout, setLayout] = useState(() => cloneLayout(defaultLayout));
   const [preferences, setPreferences] = useState(() => clonePreferences(defaultPreferences));
-  const [layoutProfiles, setLayoutProfiles] = useState<LayoutProfiles>(() => ({ four: cloneLayout(defaultLayout) }));
   const [editorOpen, setEditorOpen] = useState(false);
   const [draftLayout, setDraftLayout] = useState(() => cloneLayout(defaultLayout));
   const [draftPreferences, setDraftPreferences] = useState(() => clonePreferences(defaultPreferences));
-  const [draftLayoutProfiles, setDraftLayoutProfiles] = useState<LayoutProfiles>(() => ({ four: cloneLayout(defaultLayout) }));
   const [editorTab, setEditorTab] = useState<"layout" | "appearance" | "clock" | "games" | "alerts">("layout");
   const [expandedCardId, setExpandedCardId] = useState<string | null>(defaultLayout[0]?.id || null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -288,19 +283,20 @@ function App() {
   const pageSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const metricsGridRef = useRef<HTMLElement>(null);
   const mediaOpenRef = useRef(false);
+  const pendingPacketRef = useRef<DashboardPacket | null>(null);
+  const packetFlushTimerRef = useRef<number | null>(null);
+  const latestPacketReceivedAtRef = useRef(Date.now());
   const lastVolumeWheelAtRef = useRef(0);
   const presetPressRef = useRef<{ slot: number; holdTimer: number; releaseTimer: number; saved: boolean } | null>(null);
-  const lastSessionResetPressAtRef = useRef(0);
   const layoutRef = useRef(layout);
   const preferencesRef = useRef(preferences);
   const layoutSlotsRef = useRef(layoutSlots);
-  const layoutProfilesRef = useRef(layoutProfiles);
-  const pendingSaveRef = useRef<{ id: string; success: string } | null>(null);
-  const saveSequenceRef = useRef(0);
   const displayBrightnessRef = useRef(0.35);
   const clockBrightnessOverrideRef = useRef(false);
   const pointerSwapRef = useRef<{ id: string; pointerId: number } | null>(null);
   const longPressRef = useRef<{ timer: number; pointerId: number; x: number; y: number } | null>(null);
+
+  useEffect(() => mirrorMode ? undefined : installDeviceInputForwarder(client), [client, mirrorMode]);
 
   useEffect(() => client.webapp.onWebappInstalled((installed) => {
     if (installed.id === manifest.id && installed.version !== appVersion) {
@@ -319,41 +315,31 @@ function App() {
       if (!message || typeof message !== "object" || !("type" in message)) return;
       const data = message as { type?: unknown; payload?: unknown };
       if (data.type === "dashboard:data" && data.payload && !editorOpenRef.current) {
-        setPacket(data.payload as DashboardPacket);
-        setLastPacketReceivedAt(Date.now());
+        latestPacketReceivedAtRef.current = Date.now();
+        pendingPacketRef.current = data.payload as DashboardPacket;
+        if (packetFlushTimerRef.current === null) {
+          packetFlushTimerRef.current = window.setTimeout(() => {
+            packetFlushTimerRef.current = null;
+            const pending = pendingPacketRef.current;
+            if (!pending || editorOpenRef.current) return;
+            pendingPacketRef.current = null;
+            setPacket(pending);
+            setLastPacketReceivedAt(latestPacketReceivedAtRef.current);
+          }, 750);
+        }
       }
       if (data.type === "dashboard:state" && data.payload && typeof data.payload === "object") {
         const state = data.payload as DashboardState;
         const nextLayout = cloneLayout(state.layout);
         const nextPreferences = clonePreferences(state.preferences);
         const nextSlots = cloneLayoutSlots(state.layoutSlots);
-        const nextProfiles = withLayoutProfile(state.layoutProfiles, nextPreferences.layoutPreset, nextLayout);
         layoutRef.current = nextLayout;
         preferencesRef.current = nextPreferences;
         layoutSlotsRef.current = nextSlots;
-        layoutProfilesRef.current = nextProfiles;
         setLayout(nextLayout);
         setPreferences(nextPreferences);
         setLayoutSlots(nextSlots);
-        setLayoutProfiles(nextProfiles);
-        // This mirrors the extension's post-write state for the desktop settings
-        // page; the extension KV remains the canonical store.
-        void client.doc.set({ key: "dashboard-state", value: JSON.stringify({ ...state, layoutProfiles: nextProfiles }) });
-      }
-      if (data.type === "dashboard:saved" && data.payload && typeof data.payload === "object") {
-        const acknowledgement = data.payload as { saveId?: unknown };
-        const pending = pendingSaveRef.current;
-        if (pending && acknowledgement.saveId === pending.id) {
-          pendingSaveRef.current = null;
-          setNotice(pending.success);
-        }
-      }
-      if (data.type === "dashboard:save-failed" && data.payload && typeof data.payload === "object") {
-        const failure = data.payload as { saveId?: unknown; message?: unknown };
-        if (pendingSaveRef.current && failure.saveId === pendingSaveRef.current.id) {
-          pendingSaveRef.current = null;
-          setNotice(typeof failure.message === "string" ? failure.message : "Dashboard save failed");
-        }
+        void client.doc.set({ key: "dashboard-state", value: JSON.stringify(state) });
       }
       if (data.type === "dashboard:error" && data.payload && typeof data.payload === "object") {
         const error = data.payload as { message?: unknown };
@@ -364,10 +350,18 @@ function App() {
       }
     });
     void client.forward.json({ type: "dashboard:get" });
-    const ticker = window.setInterval(() => setNow(Date.now()), 1_000);
+    const ticker = window.setInterval(() => {
+      const current = Date.now();
+      if (preferencesRef.current.clockMode === "clock" || current - latestPacketReceivedAtRef.current > 4_000) {
+        setNow(current);
+      }
+    }, 1_000);
     return () => {
       removeForward();
       window.clearInterval(ticker);
+      if (packetFlushTimerRef.current !== null) window.clearTimeout(packetFlushTimerRef.current);
+      packetFlushTimerRef.current = null;
+      pendingPacketRef.current = null;
       if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
     };
   }, [client]);
@@ -380,8 +374,7 @@ function App() {
     layoutRef.current = layout;
     preferencesRef.current = preferences;
     layoutSlotsRef.current = layoutSlots;
-    layoutProfilesRef.current = layoutProfiles;
-  }, [layout, preferences, layoutSlots, layoutProfiles]);
+  }, [layout, preferences, layoutSlots]);
 
   useEffect(() => {
     void client.forward.json({ type: "media:subscribe", payload: { active: mediaOpen } });
@@ -452,20 +445,7 @@ function App() {
       if (editorOpenRef.current || !isMediaToggleKey(event.key, event.code, event.repeat)) return;
       event.preventDefault();
       event.stopPropagation();
-      if (clockActive) {
-        const turnAutoOn = clockBrightnessOverrideRef.current;
-        clockBrightnessOverrideRef.current = !turnAutoOn;
-        if (turnAutoOn) {
-          void client.hardware.displaySetMode({ mode: "auto" }).catch(() => setNotice("Auto dim control unavailable"));
-          setNotice("Clock auto dim on");
-        } else {
-          void client.hardware.displaySetMode({ mode: "manual" })
-            .then(() => client.hardware.displaySetLevel({ level: displayBrightnessRef.current }))
-            .catch(() => setNotice("Brightness control unavailable"));
-          setNotice("Clock auto dim off");
-        }
-        return;
-      }
+      if (clockActive) return;
       setMediaDrawerOpen(!mediaOpenRef.current);
     };
     document.addEventListener("keydown", handleMediaKey, true);
@@ -476,7 +456,6 @@ function App() {
     setMediaOpen(false);
     setDraftLayout(cloneLayout(layout));
     setDraftPreferences(clonePreferences(preferences));
-    setDraftLayoutProfiles(cloneLayoutProfiles(layoutProfiles));
     setExpandedCardId(layout[0]?.id || null);
     setEditorTab("layout");
     setArrangeMode(false);
@@ -487,7 +466,6 @@ function App() {
     setMediaOpen(false);
     setDraftLayout(cloneLayout(layout));
     setDraftPreferences(clonePreferences(preferences));
-    setDraftLayoutProfiles(cloneLayoutProfiles(layoutProfiles));
     setExpandedCardId(layout[0]?.id || null);
     setEditorTab("layout");
     setDraggedId(null);
@@ -500,29 +478,29 @@ function App() {
   const saveEditor = () => {
     const nextLayout = cloneLayout(draftLayout);
     const nextPreferences = clonePreferences(draftPreferences);
-    const nextProfiles = withLayoutProfile(draftLayoutProfiles, nextPreferences.layoutPreset, nextLayout);
     layoutRef.current = nextLayout;
     preferencesRef.current = nextPreferences;
-    layoutProfilesRef.current = nextProfiles;
     setLayout(nextLayout);
     setPreferences(nextPreferences);
-    setLayoutProfiles(nextProfiles);
     setPage(0);
-    persistDashboard(nextLayout, nextPreferences, layoutSlots, nextProfiles, "Dashboard saved");
+    void client.forward.json({
+      type: "dashboard:save",
+      payload: { layout: draftLayout, preferences: draftPreferences, layoutSlots, uiRevision: dashboardUiRevision },
+    });
+    void client.doc.set({
+      key: "dashboard-state",
+      value: JSON.stringify({ layout: draftLayout, preferences: draftPreferences, layoutSlots, uiRevision: dashboardUiRevision }),
+    });
     setEditorOpen(false);
     setArrangeMode(false);
     setDraggedId(null);
     setDragTargetId(null);
+    setNotice("Dashboard saved");
   };
 
   const choosePreset = (layoutPreset: LayoutPreset) => {
-    // Preserve the workspace being left, then restore this preset's own
-    // workspace. A factory preset is used only before that preset has ever
-    // been customized and saved.
-    const profilesWithCurrent = withLayoutProfile(draftLayoutProfiles, draftPreferences.layoutPreset, draftLayout);
-    const presetLayout = layoutForPreset(profilesWithCurrent, layoutPreset);
+    const presetLayout = clonePresetLayout(layoutPreset);
     setDraftPreferences((current) => ({ ...current, layoutPreset }));
-    setDraftLayoutProfiles(profilesWithCurrent);
     setDraftLayout(presetLayout);
     setExpandedCardId(presetLayout[0]?.id || null);
     setPage(0);
@@ -626,7 +604,7 @@ function App() {
   const startPointerSwap = (id: string, event: ReactPointerEvent<HTMLElement>) => {
     if (!arrangeMode) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if (!mirrorMode) event.currentTarget.setPointerCapture(event.pointerId);
     pointerSwapRef.current = { id, pointerId: event.pointerId };
     setDraggedId(id);
     setDragTargetId(null);
@@ -645,7 +623,7 @@ function App() {
     if (!active || active.pointerId !== event.pointerId) return;
     const targetId = cardAtPointer(event) || dragTargetId;
     if (targetId && targetId !== active.id) swapCards(active.id, targetId);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!mirrorMode && event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     pointerSwapRef.current = null;
     setDraggedId(null);
     setDragTargetId(null);
@@ -738,41 +716,16 @@ function App() {
     runMediaCommand(() => client.forward.json({ type: "media:command", payload: { command } }));
   };
 
-  const resetSessionRanges = () => {
-    void client.forward.json({ type: "metrics:reset-ranges" })
-      .then(() => setNotice("Session min/max reset"))
-      .catch(() => setNotice("Min/max reset unavailable"));
-  };
-
   useEffect(() => {
     if (clockActive || !clockBrightnessOverrideRef.current) return;
     clockBrightnessOverrideRef.current = false;
     void client.hardware.displaySetMode({ mode: "auto" }).catch(() => undefined);
   }, [client, clockActive]);
 
-  const persistDashboard = (
-    nextLayout: LayoutItem[],
-    nextPreferences: DashboardPreferences,
-    nextSlots: Array<LayoutSlot | null>,
-    nextProfiles: LayoutProfiles,
-    success = "Dashboard saved",
-  ) => {
-    const state: DashboardState = {
-      layout: nextLayout,
-      preferences: nextPreferences,
-      layoutSlots: nextSlots,
-      layoutProfiles: nextProfiles,
-      uiRevision: dashboardUiRevision,
-    };
-    const saveId = `${Date.now()}-${++saveSequenceRef.current}`;
-    pendingSaveRef.current = { id: saveId, success };
-    setNotice("Saving dashboard…");
-    void client.forward.json({ type: "dashboard:save", payload: state, saveId }).catch(() => {
-      if (pendingSaveRef.current?.id === saveId) {
-        pendingSaveRef.current = null;
-        setNotice("Dashboard save could not reach BridgeThing");
-      }
-    });
+  const persistDashboard = (nextLayout: LayoutItem[], nextPreferences: DashboardPreferences, nextSlots: Array<LayoutSlot | null>) => {
+    const state: DashboardState = { layout: nextLayout, preferences: nextPreferences, layoutSlots: nextSlots, uiRevision: dashboardUiRevision };
+    void client.forward.json({ type: "dashboard:save", payload: state });
+    void client.doc.set({ key: "dashboard-state", value: JSON.stringify(state) });
   };
 
   const saveLayoutSlot = (slot: number) => {
@@ -786,10 +739,8 @@ function App() {
     };
     layoutSlotsRef.current = nextSlots;
     setLayoutSlots(nextSlots);
-    const nextProfiles = withLayoutProfile(layoutProfilesRef.current, currentPreferences.layoutPreset, currentLayout);
-    layoutProfilesRef.current = nextProfiles;
-    setLayoutProfiles(nextProfiles);
-    persistDashboard(currentLayout, currentPreferences, nextSlots, nextProfiles, `Layout saved to button ${slot + 1}`);
+    persistDashboard(currentLayout, currentPreferences, nextSlots);
+    setNotice(`Layout saved to button ${slot + 1}`);
   };
 
   const loadLayoutSlot = (slot: number) => {
@@ -800,15 +751,13 @@ function App() {
     }
     const nextLayout = cloneLayout(saved.layout);
     const nextPreferences = { ...preferencesRef.current, layoutPreset: saved.layoutPreset, compact: saved.compact };
-    const nextProfiles = withLayoutProfile(layoutProfilesRef.current, nextPreferences.layoutPreset, nextLayout);
     layoutRef.current = nextLayout;
     preferencesRef.current = nextPreferences;
-    layoutProfilesRef.current = nextProfiles;
     setLayout(nextLayout);
     setPreferences(nextPreferences);
-    setLayoutProfiles(nextProfiles);
     setPage(0);
-    persistDashboard(nextLayout, nextPreferences, layoutSlotsRef.current, nextProfiles, `Layout ${slot + 1} loaded`);
+    persistDashboard(nextLayout, nextPreferences, layoutSlotsRef.current);
+    setNotice(`Layout ${slot + 1}`);
   };
 
   useEffect(() => {
@@ -821,20 +770,10 @@ function App() {
 
     const scheduleKeydownOnlyRelease = (press: NonNullable<typeof presetPressRef.current>) => {
       window.clearTimeout(press.releaseTimer);
-      press.releaseTimer = window.setTimeout(() => finish(press, true), 650);
+      press.releaseTimer = window.setTimeout(() => finish(press, true), 250);
     };
 
     const down = (event: KeyboardEvent) => {
-      if (isSessionResetButtonKey(event.key, event.code) && !editorOpenRef.current) {
-        event.preventDefault();
-        event.stopPropagation();
-        const now = Date.now();
-        if (now - lastSessionResetPressAtRef.current >= 650) {
-          lastSessionResetPressAtRef.current = now;
-          resetSessionRanges();
-        }
-        return;
-      }
       const slot = layoutSlotFromKey(event.key, event.code);
       if (slot === null || editorOpenRef.current) return;
       event.preventDefault();
@@ -883,13 +822,16 @@ function App() {
         const direction = wheelDirection(event.deltaX, event.deltaY);
         if (clockActive && direction) {
           event.preventDefault();
-          const next = Math.min(1, Math.max(0.03, displayBrightnessRef.current + direction * 0.05));
+          const next = Math.min(1, Math.max(0, displayBrightnessRef.current + direction * 0.01));
           displayBrightnessRef.current = next;
           setDisplayBrightness(next);
+          const enterManual = !clockBrightnessOverrideRef.current;
           clockBrightnessOverrideRef.current = true;
-          void client.hardware.displaySetMode({ mode: "manual" })
-            .then(() => client.hardware.displaySetLevel({ level: next }))
-            .catch(() => setNotice("Brightness control unavailable"));
+          const brightnessUpdate = enterManual
+            ? client.hardware.displaySetLevel({ level: next })
+                .then(() => client.hardware.displaySetMode({ mode: "manual" }))
+            : client.hardware.displaySetLevel({ level: next });
+          void brightnessUpdate.catch(() => setNotice("Brightness control unavailable"));
           setNotice(`Clock brightness ${Math.round(next * 100)}%`);
           return;
         }
@@ -1130,11 +1072,16 @@ function App() {
 
               {editorTab === "clock" && (
                 <div className="settings-stack">
-                  <label><span>Clock behavior</span><select value={draftPreferences.clockMode} onChange={(event) => setDraftPreferences((current) => ({ ...current, clockMode: event.target.value as ClockMode }))}>
-                    <option value="automatic">Automatic when PC disconnects</option>
-                    <option value="dashboard">Dashboard only</option>
-                    <option value="clock">Clock only</option>
-                  </select></label>
+                  <div className="clock-mode-picker" role="group" aria-label="Clock behavior">
+                     <span>Clock behavior</span>
+                     <div>
+                       {(["automatic", "dashboard", "clock"] as ClockMode[]).map((mode) => (
+                         <button type="button" key={mode} className={draftPreferences.clockMode === mode ? "active" : ""} onClick={() => setDraftPreferences((current) => ({ ...current, clockMode: mode }))}>
+                           {mode === "automatic" ? "Automatic" : mode === "dashboard" ? "Dashboard" : "Clock"}
+                         </button>
+                       ))}
+                     </div>
+                   </div>
                   <label><span>Clock face</span><select value={draftPreferences.clockFace} onChange={(event) => setDraftPreferences((current) => ({ ...current, clockFace: event.target.value as ClockFace }))}>
                     <option value="bold">Bold Digital</option><option value="foundry">Foundry Digital</option><option value="minimal">OLED Minimal</option><option value="analog-foundry">Foundry Analog</option><option value="analog-minimal">Minimal Analog</option>
                   </select></label>
