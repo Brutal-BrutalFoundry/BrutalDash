@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-09-22T01:59:11Z",
+  "updated_at": "2026-09-22T23:16:41Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -25,6 +25,26 @@
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.40",
+          "released_at": "2026-09-22T23:16:41Z",
+          "download": {
+            "url": "https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/download/v0.1.40/BrutalDash-0.1.40.zip",
+            "size": 1419939,
+            "sha256": "5220961b047b15f6ccb9637e3b5119ca7a2fd48c890976c1f75d8852d607be68"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1:8894"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Release packaging correction: downloads now use GitHub Release assets, source archives no longer embed historical release ZIPs, and CI prevents tracked release ZIPs; dashboard behavior is unchanged."
+        },
         {
           "version": "0.1.39",
           "released_at": "2026-09-22T01:59:11Z",
