@@ -1,3 +1,4 @@
+import {ChoiceSelect} from '../src/ChoiceSelect';
 import { settings, type SettingsContext } from '@bridgething/client/settings';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -5,6 +6,8 @@ import { createRoot } from 'react-dom/client';
 import {
   clonePresetLayout,
   cloneLayoutSlots,
+  cloneLayoutProfiles,
+  upgradeGamingLayout,
   dashboardUiRevision,
   defaultLayout,
   defaultPreferences,
@@ -21,6 +24,9 @@ import {
   type ThemeName,
 } from '../src/types';
 import './style.css';
+import {validProbeTarget} from '../src/network-quality';
+import {displayName,clockLogo} from '../src/branding';
+import {BrandingSettings} from '../src/BrandingSettings';
 
 const dashboardDocKey = 'dashboard-state';
 const dashboardConfigKey = 'dashboardState';
@@ -70,6 +76,13 @@ function parseProcessList(value: string) {
   return [...new Set(value.split(/[\n,;]/).map(entry => entry.trim()).filter(Boolean))].slice(0, 100);
 }
 
+function ProcessListInput({label,value,onChange}: {label:string;value:string[];onChange:(value:string[])=>void}) {
+  const [text,setText] = useState(value.join(', '));
+  const last = useRef(JSON.stringify(value));
+  useEffect(() => {const encoded=JSON.stringify(value);if(encoded!==last.current){setText(value.join(', '));last.current=encoded;}},[value]);
+  return <label className="field"><span>{label}</span><input value={text} placeholder="example.exe, another-game.exe" onChange={event => {const raw=event.target.value;setText(raw);const parsed=parseProcessList(raw);last.current=JSON.stringify(parsed);onChange(parsed);}} /></label>;
+}
+
 function parseState(value: string | null | undefined): DashboardState | null {
   if (!value) return null;
   try {
@@ -97,11 +110,16 @@ function parseState(value: string | null | undefined): DashboardState | null {
     });
     if (!layout.length) return null;
     return {
-      layout,
+      layout: upgradeGamingLayout(layout,preferences.layoutPreset || defaultPreferences.layoutPreset),
+      layoutProfiles: cloneLayoutProfiles(parsed.layoutProfiles),
       layoutSlots: cloneLayoutSlots(parsed.layoutSlots),
       preferences: {
         ...clonePreferences(defaultPreferences),
         ...preferences,
+        displayName: displayName(preferences.displayName),
+        clockLogo: clockLogo(preferences.clockLogo),
+        networkProbeEnabled: preferences.networkProbeEnabled !== false,
+        networkProbeTarget: validProbeTarget(preferences.networkProbeTarget) ? preferences.networkProbeTarget : defaultPreferences.networkProbeTarget,
         enabledMetrics: Array.isArray(preferences.enabledMetrics)
           ? preferences.enabledMetrics.filter((metric): metric is MetricKey => metricKeys.includes(metric as MetricKey))
           : [...metricKeys],
@@ -167,7 +185,8 @@ function Settings() {
   }
 
   function choosePreset(layoutPreset: LayoutPreset) {
-    setState(current => ({ ...current, layout: clonePresetLayout(layoutPreset), preferences: { ...current.preferences, layoutPreset } }));
+    if (layoutPreset === state.preferences.layoutPreset) return;
+    setState(current => ({ ...current, layoutProfiles:{...cloneLayoutProfiles(current.layoutProfiles),[current.preferences.layoutPreset]:cloneLayout(current.layout)}, layout: cloneLayout(current.layoutProfiles?.[layoutPreset] || clonePresetLayout(layoutPreset)), preferences: { ...current.preferences, layoutPreset } }));
   }
 
   function updateCard(id: string, update: Partial<LayoutItem>) {
@@ -200,6 +219,7 @@ function Settings() {
   }
 
   async function save() {
+    if(preferences.networkProbeEnabled && !validProbeTarget(preferences.networkProbeTarget)){setStatus('Enter a valid IPv4 probe target');return;}
     setStatus('Saving dashboard to BridgeThing…');
     try {
       await settings.config.set(dashboardConfigKey, encoded);
@@ -240,8 +260,9 @@ function Settings() {
 
     <section>
       <h2>Appearance</h2>
+      <BrandingSettings name={preferences.displayName} logo={preferences.clockLogo} onChange={setPreference} />
       <div className="grid two">
-        <label className="field"><span>Theme preset</span><select value={preferences.theme} onChange={event => setPreference({ theme: event.target.value as ThemeName })}>{themes.map(theme => <option key={theme.value} value={theme.value}>{theme.label}</option>)}</select></label>
+        <label className="field"><span>Theme preset</span><ChoiceSelect aria-label="Theme preset" value={preferences.theme} onChange={event => setPreference({ theme: event.target.value as ThemeName })}>{themes.map(theme => <option key={theme.value} value={theme.value}>{theme.label}</option>)}</ChoiceSelect></label>
         <label className="field"><span>Custom accent</span><span className="color-row"><input type="color" value={preferences.accent} onChange={event => setPreference({ accent: event.target.value })} /><code>{preferences.accent.toUpperCase()}</code></span></label>
       </div>
       <div className="grid three">
@@ -255,10 +276,10 @@ function Settings() {
       <h2>Disconnected clock</h2>
       <p className="hint">Automatic mode shows a local clock after BrutalDash goes 12 seconds without fresh PC telemetry.</p>
       <div className="grid two">
-        <label className="field"><span>Clock behavior</span><select value={preferences.clockMode} onChange={event => setPreference({ clockMode: event.target.value as ClockMode })}><option value="automatic">Automatic when PC disconnects</option><option value="dashboard">Dashboard only</option><option value="clock">Clock only</option></select></label>
-        <label className="field"><span>Clock face</span><select value={preferences.clockFace} onChange={event => setPreference({ clockFace: event.target.value as ClockFace })}><option value="bold">Bold Digital</option><option value="foundry">Foundry Digital</option><option value="minimal">OLED Minimal</option><option value="analog-foundry">Foundry Analog</option><option value="analog-minimal">Minimal Analog</option></select></label>
-        <label className="field"><span>Time format</span><select value={preferences.clockFormat} onChange={event => setPreference({ clockFormat: event.target.value as ClockFormat })}><option value="12">12-hour</option><option value="24">24-hour</option></select></label>
-        <label className="field"><span>Clock colors</span><select value={preferences.clockColorMode} onChange={event => setPreference({ clockColorMode: event.target.value as ClockColorMode })}><option value="theme">Follow dashboard theme</option><option value="custom">Custom color</option></select></label>
+        <label className="field"><span>Clock behavior</span><ChoiceSelect aria-label="Clock behavior" value={preferences.clockMode} onChange={event => setPreference({ clockMode: event.target.value as ClockMode })}><option value="automatic">Automatic when PC disconnects</option><option value="dashboard">Dashboard only</option><option value="clock">Clock only</option></ChoiceSelect></label>
+        <label className="field"><span>Clock face</span><ChoiceSelect aria-label="Clock face" value={preferences.clockFace} onChange={event => setPreference({ clockFace: event.target.value as ClockFace })}><option value="bold">Bold Digital</option><option value="foundry">Foundry Digital</option><option value="minimal">OLED Minimal</option><option value="analog-foundry">Foundry Analog</option><option value="analog-minimal">Minimal Analog</option></ChoiceSelect></label>
+        <label className="field"><span>Time format</span><ChoiceSelect aria-label="Time format" value={preferences.clockFormat} onChange={event => setPreference({ clockFormat: event.target.value as ClockFormat })}><option value="12">12-hour</option><option value="24">24-hour</option></ChoiceSelect></label>
+        <label className="field"><span>Clock colors</span><ChoiceSelect aria-label="Clock colors" value={preferences.clockColorMode} onChange={event => setPreference({ clockColorMode: event.target.value as ClockColorMode })}><option value="theme">Follow dashboard theme</option><option value="custom">Custom color</option></ChoiceSelect></label>
         {preferences.clockColorMode === 'custom' && <label className="field"><span>Clock color</span><span className="color-row"><input type="color" value={preferences.clockColor} onChange={event => setPreference({ clockColor: event.target.value })} /><code>{preferences.clockColor.toUpperCase()}</code></span></label>}
         <label className="check"><input type="checkbox" checked={preferences.clockShowDate} onChange={event => setPreference({ clockShowDate: event.target.checked })} /> Show day and date</label>
       </div>
@@ -266,22 +287,24 @@ function Settings() {
 
     <section>
       <h2>Game recognition</h2>
+      <label className="check"><input type="checkbox" checked={preferences.networkProbeEnabled} onChange={event => setPreference({networkProbeEnabled:event.target.checked})} /> Probe network latency and packet loss</label>
+      <label className="field"><span>ICMP probe target (IPv4, not game-server ping)</span><input value={preferences.networkProbeTarget} onChange={event => setPreference({networkProbeTarget:event.target.value})} /></label>
       <p className="hint">Fullscreen standalone games are detected automatically. Add executable names here for unusual or windowed games, or exclude applications that should never appear as games.</p>
       <div className="grid two">
-        <label className="field"><span>Always recognize</span><input type="text" value={preferences.gameInclude.join(', ')} placeholder="example.exe, another-game.exe" onChange={event => setPreference({ gameInclude: parseProcessList(event.target.value) })} /></label>
-        <label className="field"><span>Never recognize</span><input type="text" value={preferences.gameExclude.join(', ')} placeholder="example.exe" onChange={event => setPreference({ gameExclude: parseProcessList(event.target.value) })} /></label>
+        <ProcessListInput label="Always recognize" value={preferences.gameInclude} onChange={gameInclude => setPreference({gameInclude})} />
+        <ProcessListInput label="Never recognize" value={preferences.gameExclude} onChange={gameExclude => setPreference({gameExclude})} />
       </div>
     </section>
 
     <section>
       <h2>Layout</h2>
       <p className="hint">Choose a starting layout, then move, resize, hide, or reassign every card below. X/Y use the same six-column grid as the device.</p>
-      <label className="field preset"><span>Starting layout</span><select value={preferences.layoutPreset} onChange={event => choosePreset(event.target.value as LayoutPreset)}>{presets.map(preset => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</select></label>
+      <label className="field preset"><span>Starting layout</span><ChoiceSelect aria-label="Starting layout" value={preferences.layoutPreset} onChange={event => choosePreset(event.target.value as LayoutPreset)}>{presets.map(preset => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</ChoiceSelect></label>
       <div className="cards">
         {layout.map((card, index) => <article className="card" key={card.id}>
           <div className="card-head"><b>Card {index + 1}</b><button className="text-button" type="button" onClick={() => removeCard(card.id)} disabled={layout.length <= 1}>Remove</button></div>
           <div className="grid two">
-            <label className="field"><span>Main reading</span><select value={card.metric} onChange={event => changeMetric(card.id, event.target.value as MetricKey)}>{metricKeys.map(metric => <option key={metric} value={metric}>{metricLabels[metric]}</option>)}</select></label>
+            <label className="field"><span>Main reading</span><ChoiceSelect aria-label="Main reading" value={card.metric} onChange={event => changeMetric(card.id, event.target.value as MetricKey)}>{metricKeys.map(metric => <option key={metric} value={metric}>{metricLabels[metric]}</option>)}</ChoiceSelect></label>
             <label className="check"><input type="checkbox" checked={card.hidden} onChange={event => updateCard(card.id, { hidden: event.target.checked })} /> Hide this card</label>
           </div>
           <div className="grid four compact-fields">
@@ -290,11 +313,11 @@ function Settings() {
             <label className="field"><span>Width</span><input type="number" min="1" max="6" value={card.w} onChange={event => updateCard(card.id, { w: Number(event.target.value) })} /></label>
             <label className="field"><span>Height</span><input type="number" min="1" max="4" value={card.h} onChange={event => updateCard(card.id, { h: Number(event.target.value) })} /></label>
           </div>
-          <div className="details"><span>Secondary readings</span>{[0, 1, 2].map(detailIndex => <select key={detailIndex} value={card.details[detailIndex] || ''} onChange={event => {
+          <div className="details"><span>Secondary readings</span>{[0, 1, 2].map(detailIndex => <ChoiceSelect aria-label={`Secondary reading ${detailIndex + 1} for card ${index + 1}`} key={detailIndex} value={card.details[detailIndex] || ''} onChange={event => {
             const details = [...card.details];
             if (event.target.value) details[detailIndex] = event.target.value as MetricKey; else details.splice(detailIndex, 1);
             updateCard(card.id, { details: [...new Set(details)].slice(0, 3) });
-          }}><option value="">None</option>{metricKeys.filter(metric => metric !== card.metric).map(metric => <option key={metric} value={metric}>{metricLabels[metric]}</option>)}</select>)}</div>
+          }}><option value="">None</option>{metricKeys.filter(metric => metric !== card.metric).map(metric => <option key={metric} value={metric}>{metricLabels[metric]}</option>)}</ChoiceSelect>)}</div>
         </article>)}
       </div>
       <button type="button" className="secondary" onClick={addCard} disabled={layout.length >= 18}>Add card</button>

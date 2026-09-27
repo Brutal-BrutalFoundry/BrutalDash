@@ -16,16 +16,56 @@ using Windows.Media.Control;
 internal static class BrutalDashMediaHost
 {
     private const int S_OK = 0;
+    private static GlobalSystemMediaTransportControlsSessionManager _mediaManager;
+    private static bool _outputInitialized;
+
+    private static int RunServer()
+    {
+        string line;
+        while ((line = Console.ReadLine()) != null)
+        {
+            if (line.StartsWith("command\t"))
+                Main(new[] { "--command", line.Substring(8) });
+            else if (line.StartsWith("volume\t"))
+            {
+                try
+                {
+                    var fields = line.Split('\t');
+                    Main(new[] { "--hint", System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(fields[1])), "--delta", fields[2] });
+                }
+                catch { Write(false, "invalid-volume-request", null, null); }
+            }
+            else if (line == "snapshot")
+                Main(new[] { "--snapshot" });
+            else if (line == "snapshot-artwork")
+                Main(new[] { "--snapshot", "--artwork" });
+            else
+                WriteMedia(false, "invalid-server-request", null, null, null, null, null, 0, 0, null);
+
+            Console.Out.Flush();
+        }
+
+        return 0;
+    }
 
     [STAThread]
     private static int Main(string[] args)
     {
+        if (!_outputInitialized)
+        {
+            // A GUI helper has no console code page. Encode the redirected pipe
+            // directly; Console.OutputEncoding throws ERROR_INVALID_HANDLE.
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), new System.Text.UTF8Encoding(false)) { AutoFlush = true });
+            _outputInitialized = true;
+        }
+        if (args.Length == 1 && args[0] == "--server")
+            return RunServer();
         try
         {
             var request = Request.Parse(args);
             if (request.Snapshot || request.Command != null)
             {
-                var manager = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().GetAwaiter().GetResult();
+                var manager = _mediaManager ?? (_mediaManager = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().GetAwaiter().GetResult());
                 var mediaSession = manager.GetCurrentSession();
                 if (mediaSession == null)
                 {
@@ -48,6 +88,8 @@ internal static class BrutalDashMediaHost
                         WriteMedia(false, "windows-media-command-rejected", mediaSession.SourceAppUserModelId, null, null, null, null, 0, 0, null);
                         return 4;
                     }
+                    Write(true, null, mediaSession.SourceAppUserModelId, null);
+                    return 0;
                 }
 
                 var properties = mediaSession.TryGetMediaPropertiesAsync().AsTask().GetAwaiter().GetResult();
@@ -99,6 +141,8 @@ internal static class BrutalDashMediaHost
             }
 
             var sessions = ActiveSessions().ToList();
+            try
+            {
             var target = SelectSession(sessions, request.Hint);
             if (target == null)
             {
@@ -116,6 +160,12 @@ internal static class BrutalDashMediaHost
 
             Write(true, null, target.ProcessName, target.Volume);
             return 0;
+            }
+            finally
+            {
+                foreach (var session in sessions)
+                    if (session.SimpleVolume != null && Marshal.IsComObject(session.SimpleVolume)) Marshal.ReleaseComObject(session.SimpleVolume);
+            }
         }
         catch (Exception error)
         {
@@ -243,7 +293,14 @@ internal static class BrutalDashMediaHost
     private static string Json(string value)
     {
         if (value == null) return "null";
-        return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n") + "\"";
+        var text = new System.Text.StringBuilder("\"");
+        foreach (char ch in value)
+        {
+            if (ch == '\\' || ch == '"') text.Append('\\').Append(ch);
+            else if (ch < 32) text.Append("\\u").Append(((int)ch).ToString("x4"));
+            else text.Append(ch);
+        }
+        return text.Append('"').ToString();
     }
 
     private sealed class AudioSession

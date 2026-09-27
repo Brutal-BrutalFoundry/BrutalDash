@@ -62,6 +62,7 @@ export type DashboardAlert = {
 };
 
 export type DashboardPacket = {
+  networkQuality?: import('./network-quality').NetworkQuality;
   timestamp: number;
   clock: string;
   pcTimeOffsetMinutes: number;
@@ -91,6 +92,8 @@ export type LayoutItem = {
 };
 
 export type DashboardPreferences = {
+  displayName: string;
+  clockLogo: string | null;
   theme: ThemeName;
   accent: string;
   brightness: number;
@@ -109,6 +112,8 @@ export type DashboardPreferences = {
   clockColor: string;
   gameInclude: string[];
   gameExclude: string[];
+  networkProbeEnabled: boolean;
+  networkProbeTarget: string;
 };
 
 export type LayoutSlot = {
@@ -118,18 +123,30 @@ export type LayoutSlot = {
 };
 
 export type DashboardState = {
+  layoutProfiles?: Partial<Record<LayoutPreset, LayoutItem[]>>;
   layout: LayoutItem[];
   preferences: DashboardPreferences;
   layoutSlots?: Array<LayoutSlot | null>;
   uiRevision?: number;
 };
 
+export function cloneLayoutProfiles(profiles?: DashboardState['layoutProfiles']): NonNullable<DashboardState['layoutProfiles']> {
+  const result: NonNullable<DashboardState['layoutProfiles']> = {};
+  for (const preset of ['four','rows','list','gaming','six','paged'] as const) {
+    const items = profiles?.[preset];
+    if (Array.isArray(items) && items.length <= 18 && items.every(item => item && typeof item.id === 'string' && metricKeys.includes(item.metric) && Array.isArray(item.details) && item.details.every(key => metricKeys.includes(key)) && [item.x,item.y,item.w,item.h].every(Number.isFinite) && item.x >= 0 && item.x < 6 && item.y >= 0 && item.y <= 11 && item.w >= 1 && item.w <= 6 && item.h >= 1 && item.h <= 4)) {
+      result[preset] = upgradeGamingLayout(items.map(item => ({...item, details:[...item.details]})),preset);
+    }
+  }
+  return result;
+}
+
 export const emptyLayoutSlots = (): Array<LayoutSlot | null> => [null, null, null, null];
 
 export function cloneLayoutSlots(slots?: Array<LayoutSlot | null>): Array<LayoutSlot | null> {
   return emptyLayoutSlots().map((_, index) => {
     const slot = slots?.[index];
-    return slot ? { ...slot, layout: slot.layout.map(item => ({ ...item, details: [...item.details] })) } : null;
+    return slot ? { ...slot, layout: upgradeGamingLayout(slot.layout.map(item => ({ ...item, details: [...item.details] })), slot.layoutPreset) } : null;
   });
 }
 
@@ -216,11 +233,10 @@ export const presetLayouts: Record<LayoutPreset, LayoutItem[]> = {
     card("network", "networkDown", 0, 5, 6, 1, ["networkUp"]),
   ],
   gaming: [
-    card("fps", "fps", 0, 0, 4, 2, ["onePercentLow", "frameTime"]),
-    card("gpu", "gpuUsage", 4, 0, 2, 2, ["gpuTemp", "gpuPower"]),
-    card("cpu", "cpuUsage", 0, 2, 2, 2, ["cpuTemp", "cpuClock"]),
-    card("vram", "vramUsed", 2, 2, 2, 2, ["vramPercent"]),
-    card("ram", "ramUsed", 4, 2, 2, 2, ["ramPercent"]),
+    card("fps", "fps", 0, 0, 3, 2, ["onePercentLow", "frameTime"]),
+    card("gpu", "gpuUsage", 3, 0, 3, 2, ["gpuTemp", "gpuPower", "vramUsed"]),
+    card("cpu", "cpuUsage", 0, 2, 3, 2, ["cpuTemp", "cpuClock"]),
+    card("ram", "ramUsed", 3, 2, 3, 2, ["ramPercent"]),
   ],
   six: [
     card("gpu", "gpuUsage", 0, 0, 2, 2, ["gpuTemp", "gpuPower"]),
@@ -244,10 +260,20 @@ export function clonePresetLayout(preset: LayoutPreset): LayoutItem[] {
   return presetLayouts[preset].map((item) => ({ ...item, details: [...item.details] }));
 }
 
+// Upgrade only the untouched former FPS preset. Custom cards/positions survive.
+export function upgradeGamingLayout(layout: LayoutItem[], preset: LayoutPreset): LayoutItem[] {
+  if(preset!=='gaming'||layout.length!==5)return layout;
+  const former=[card('fps','fps',0,0,4,2,['onePercentLow','frameTime']),card('gpu','gpuUsage',4,0,2,2,['gpuTemp','gpuPower']),card('cpu','cpuUsage',0,2,2,2,['cpuTemp','cpuClock']),card('vram','vramUsed',2,2,2,2,['vramPercent']),card('ram','ramUsed',4,2,2,2,['ramPercent'])];
+  const matches=former.every(old=>{const item=layout.find(c=>c.id===old.id);return item&&!item.hidden&&item.metric===old.metric&&item.x===old.x&&item.y===old.y&&item.w===old.w&&item.h===old.h&&(item.page||0)===0&&JSON.stringify(item.details)===JSON.stringify(old.details);});
+  return matches?clonePresetLayout('gaming'):layout;
+}
+
 export const dashboardUiRevision = 6;
 export const defaultLayout: LayoutItem[] = clonePresetLayout("four");
 
 export const defaultPreferences: DashboardPreferences = {
+  displayName: 'BrutalDash',
+  clockLogo: null,
   theme: "miami",
   accent: "#20f7e5",
   brightness: 100,
@@ -266,4 +292,6 @@ export const defaultPreferences: DashboardPreferences = {
   clockColor: "#20f7e5",
   gameInclude: [],
   gameExclude: [],
+  networkProbeEnabled: true,
+  networkProbeTarget: '1.1.1.1',
 };

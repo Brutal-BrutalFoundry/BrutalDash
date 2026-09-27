@@ -1,11 +1,82 @@
 # pc-dashboard-bridgething
 
-## 0.1.40 - BrutalDash beta
+## 0.1.51 - Stable (2026-09-27)
 
-- Move downloadable BrutalDash packages out of the tracked source tree and serve them from GitHub Release assets instead.
-- Prevent GitHub source archives from recursively embedding historical BrutalDash release ZIPs.
-- Add Git ignore and Pages CI guards that reject tracked release ZIPs so the packaging mistake cannot silently recur.
-- Rebuild and verify the release from a clean checkout; application behavior is otherwise unchanged.
+- Promote the user-accepted .51 build to stable, including the changes tested in .48 through .50 below.
+- Gaming Focus combines GPU/VRAM and adds network latency and rolling packet loss; supporting readings and bundled fonts are clearer across layouts.
+- Hold a card for 1.5 seconds, drag onto another, and release to swap and automatically persist that layout.
+- Improve layout switching, customization pickers, media layout, and brightness restoration after clock mode.
+- Include verified-access PawnIO provisioning and AMD HWiNFO sensor-name fixes. Hardware coverage is based on available tests and user acceptance, not universal AM5 certification.
+
+- Apply the uploaded branding logo to the top-left dashboard image across layouts as well as Foundry Digital. Restore-defaults returns both surfaces to the stock branding.
+
+## 0.1.50 - Local test build (not published)
+
+- Verify PawnIO readiness by loading the signed CPU-access module instead of trusting registry metadata or installer exit codes. Reuse working access with stale metadata, verify access after setup, and stop with the actual Windows error if setup did not make the driver usable; prevent repeated provisioning loops.
+
+## 0.1.49 - Local test build (not published)
+
+- Recognize AMD HWiNFO CPU temperature, average effective clock, and SMU package-power names. Keep native CPU readings preferred when available and retain HWiNFO readings when native values are missing.
+- Process the CPU helper's final output before choosing its restart policy, so completed provisioning retries promptly and cancelled/failed/reboot-required setup does not inadvertently retry.
+
+## 0.1.48 - Local test build (not published)
+
+- Normalize legacy saved Gaming Focus slots before display, correlate save-state replies so delayed older replies cannot restore a previous selection, and skip identical save-echo redraws. Remove usage-bar width animation to avoid continuous layout recalculation on the device.
+
+- Apply approved option 2 to Gaming Focus: increase GPU, CPU, and RAM main values to 44px with labels alongside, retaining grouped supporting stats, min/max, and GPU peaks.
+
+- Apply the user-approved option B grouped supporting-stat design across all six layouts. Retain min/max and GPU peaks; use tighter spacing in dense rows and make room for the System Rows upload group.
+
+- Enlarge supporting telemetry throughout the standard layouts: 16–19px readings, bright 14px labels, larger disk units, and readable GPU current/peak values. Keep min/max; reflow dense rows and omit redundant card-name prefixes from detail labels.
+
+- Make the gaming network strip easier to read with four equal columns, larger readings and labels, and higher-contrast secondary text. Retain transfer peaks and the latency target.
+
+- Remove the probe-count sublabel under packet loss. Internal history remains capped at the last 30 results, including during long sessions.
+- Replace native settings dropdowns across the dashboard and companion settings with a shared touch-friendly in-app picker. Keep selections visible, support keyboard navigation/cancel, and scroll long metric lists within the screen.
+- Remove the customization-menu X. Mode toggles the menu: close immediately when unchanged; otherwise offer Save changes, Discard, or Keep editing. Mode also dismisses an open picker before applying that logic.
+- Local revision 2: combine GPU/VRAM in Gaming Focus; retain temperature and VRAM peaks; add network throughput plus target-labeled native Windows ICMP latency and rolling packet loss.
+- Hold any card for 1.5 seconds to pick it up directly on the normal dashboard. Drag onto another card and release to swap, then immediately resume normal operation without entering an editor or requiring confirmation. Show hold progress, cancel early release/outside drops, automatically save with desktop-storage acknowledgment, and retain the change in the layout profile and its recalled button slot.
+- Reduce menu work by omitting hidden metric cards, expanding metric selectors only when requested, and retaining menu controls between visits. Keep keyboard shortcuts out of text inputs.
+- Add a shared display name and uploaded clock logo in Appearance, with bounded image resizing and a restore-defaults control. Branding survives layout switching and saved-state reloads.
+- .40 is the user-confirmed working baseline. Preserve the later larger centered clock, layout persistence, and physical controls.
+- Repair corrupted UTF-8 labels and units; render the editor close control with SVG.
+- Load the bundled Inter font explicitly in the dashboard and desktop settings, in WOFF2 form with its license; reject missing font assets and oversized settings pages during packaging.
+- Keep the editor outside the whole-screen brightness filter, stop unrelated clock/ambient-light renders while editing, and retain visited tab controls instead of repeatedly rebuilding them.
+- Restore the display's previous mode and level after clock-wheel dimming; serialize brightness commands and keep dashboard brightness out of clock mode.
+- Bound media-helper requests, serialize snapshot/transport/volume over one process, stop stale subscriptions, and clear closed-drawer media state.
+- Report failed PawnIO reads instead of treating them as zero; coordinate AMD SMN reads with the shared PCI mutex and retain specific temperature errors.
+- Build and package checks are not runtime certification. AM5 hardware, second-machine rendering, long-idle behavior, crashes, and visible flicker remain release gates until directly verified.
+
+## 0.1.47 - BrutalDash beta
+
+- FAILED in reported use despite a successful production build. Not a known-good runtime baseline.
+- Fix corrupted unavailable-metric text that could render garbage characters in the FPS card.
+
+## 0.1.46 - BrutalDash beta
+
+- Replace the LibreHardwareMonitor runtime CPU dependency with bundled standalone Intel and AMD CPU telemetry using PawnIO, while keeping HWiNFO optional for additional sensor enrichment.
+- Make native CPU telemetry the baseline for CPU usage, temperature, clock and package power when those native readings are available.
+- Keep the dashboard renderer responsive after long idle periods to eliminate the large first-input delay.
+- Stop automatically restoring display brightness mode after leaving clock mode; manual clock brightness control remains available.
+- Ship the corrected physical-button media drawer behavior in the new build.
+
+## 0.1.45 - BrutalDash beta
+
+- Fix native AM5 hardware-access setup when PawnIO returns Windows error 183 because its service is already registered.
+- Accept error 183 only after verifying the PawnIO service exists, while preserving normal upgrade handling for known older versions.
+- Fall back to the verified PawnIO service when uninstall-version metadata is missing so native CPU telemetry can continue instead of failing setup.
+- Pin the exact managed CPU-helper DLL SHA-256 in both build and release packaging guards so the patched helper cannot be silently replaced by an older DLL.
+
+## 0.1.44 - BrutalDash beta
+
+- Fix physical controls: Back toggles Media, Mode/M opens Customize, Buttons 1-3 recall layouts, and Button 4 resets telemetry MIN/MAX.
+- Preserve saved card swaps across reloads and make Customize close safely with Save, Discard, or Keep Editing only when changes are pending.
+- Enlarge and center the header clock, keep the Native/HWiNFO status readable, and remove the obsolete top SAVE DASHBOARD control and yellow focus border.
+- Add bundled native AM5 CPU temperature, clock, and package-power telemetry with one-time PawnIO provisioning when required; no HWiNFO or separate monitoring app is required.
+- Replace the oversized single-file CPU helper with a self-contained multi-file publish and add build/package guards that reject the distribution pattern Discord flagged.
+- Preserve Intel PresentMon byte-for-byte and keep its Authenticode signature valid instead of patching its PE header.
+- Add a tiny hidden PresentMon launcher that forwards live CSV output and owns the child with a kill-on-close Windows Job Object so capture cleanup remains reliable.
+- Add release guards for the exact PresentMon, launcher, PawnIO, and CPU-host payloads.
 
 ## 0.1.29 — BrutalDash beta
 

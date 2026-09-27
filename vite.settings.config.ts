@@ -22,6 +22,7 @@ function sizeGuard(): Plugin {
         return;
       }
       const kib = (bytes / 1024).toFixed(1);
+      if (bytes > 1024 * 1024) throw new Error(`settings.html exceeds BridgeThing's 1 MiB install limit (${bytes} bytes)`);
       if (bytes > LOUD_BYTES) {
         console.warn(
           [

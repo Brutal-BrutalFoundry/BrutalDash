@@ -1,5 +1,13 @@
+@font-face {
+  font-family: "BrutalDash UI";
+  src: url("./fonts/Inter-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "BrutalDash UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #f7fbff;
   background: #03050a;
   font-synthesis: none;
@@ -335,15 +343,22 @@ input:focus-visible {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .dashboard-clock {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
   color: var(--text);
-  font-size: 15px;
+  font-size: 34px;
   font-variant-numeric: tabular-nums;
   font-weight: 780;
+  line-height: 1;
   letter-spacing: 0.045em;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
   white-space: nowrap;
 }
 
@@ -358,6 +373,13 @@ input:focus-visible {
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.13em;
+}
+
+.source-badge,
+.version-badge {
+  padding: 7px 12px;
+  font-size: 15px;
+  letter-spacing: 0.08em;
 }
 
 .version-badge {
@@ -822,7 +844,8 @@ input:focus-visible {
   background: currentColor;
   border-radius: inherit;
   box-shadow: 0 0 8px currentColor;
-  transition: width 550ms ease;
+  /* Width tweening relaid out the device on every animation frame. */
+  transition: none;
 }
 
 .metric-details {
@@ -1248,6 +1271,13 @@ input:focus-visible {
   background: rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(2px);
   animation: fade-in 180ms ease-out;
+  outline: none;
+}
+
+/* The editor is an opaque control surface. Filtering the entire scrolling
+   subtree forces large repaints and dims the controls along with the preview. */
+.dashboard.is-editing {
+  filter: none;
 }
 
 .editor-panel {
@@ -1280,39 +1310,53 @@ input:focus-visible {
   padding: 14px 15px 10px;
 }
 
-.editor-save-button {
-  position: absolute;
-  top: 11px;
-  left: 50%;
-  display: flex;
-  min-width: 172px;
-  height: 43px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  color: #02100f;
-  background: var(--accent);
-  border: 0;
-  border-radius: 10px;
-  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.4);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  transform: translateX(-50%);
-}
-
-.editor-save-button small {
-  margin-left: 9px;
-  padding: 3px 5px;
-  color: rgba(2, 16, 15, 0.72);
-  border: 1px solid rgba(2, 16, 15, 0.28);
-  border-radius: 4px;
-  font-size: 7px;
-  letter-spacing: 0.08em;
-}
 
 .editor-heading h2 {
   font-size: 22px;
+}
+
+.editor-close-confirm {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.editor-close-confirm-card {
+  width: min(410px, calc(100vw - 40px));
+  padding: 20px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-solid) 97%, black);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 14px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.58);
+}
+
+.editor-close-confirm-card h3 {
+  margin: 5px 0 7px;
+  font-size: 22px;
+}
+
+.editor-close-confirm-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.editor-close-confirm-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.editor-close-confirm-actions button {
+  min-width: 0;
 }
 
 .editor-tabs {
@@ -1396,6 +1440,10 @@ input:focus-visible {
   overscroll-behavior: contain;
 }
 
+.editor-tab-panel[hidden] {
+  display: none;
+}
+
 .editor-help {
   margin: 2px 0 10px;
   color: var(--muted);
@@ -1450,8 +1498,6 @@ input:focus-visible {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
   border-radius: 8px;
-  content-visibility: auto;
-  contain-intrinsic-size: 56px;
 }
 
 .card-control.is-hidden {
@@ -1743,6 +1789,9 @@ select {
     width: 100%;
     min-width: 0;
     border-left: 0;
+    /* A full-screen panel has no visible outside edge. Avoid allocating the
+       large blurred shadow surface whenever its scrolling contents change. */
+    box-shadow: none;
   }
 
   .editor-help,
@@ -2159,16 +2208,179 @@ select {
 /* Non-compact secondary telemetry must remain readable on the physical 800x480 display. */
 .dashboard:not(.is-compact) .metric-range,
 .dashboard:not(.is-compact) .metric-details {
-  font-size: 15.5px;
-  line-height: 1.3;
+  font-size: 18px;
+  line-height: 1.25;
+  color: var(--text);
 }
 
 .dashboard:not(.is-compact) .metric-range b,
 .dashboard:not(.is-compact) .metric-details b {
-  font-size: 12px;
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: 0;
 }
 
 .dashboard:not(.is-compact).preset-paged .metric-range,
 .dashboard:not(.is-compact).preset-paged .metric-details {
   font-size: 17px;
 }
+
+/* Card gestures own the surface; labels must never invoke browser selection. */
+.metric-card, .metric-card *, .gaming-network, .gaming-network * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+.metrics-grid { transition: none; will-change: auto; }
+.card-hold-progress {
+  position: absolute;
+  z-index: 5;
+  inset: auto 12px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: #080c16;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+.card-hold-progress i {
+  display: block;
+  height: 4px;
+  margin-top: 5px;
+  background: var(--accent);
+  transform-origin: left;
+  animation: card-hold-fill 1.5s linear forwards;
+}
+@keyframes card-hold-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.dashboard.is-editing .editor-shell { backdrop-filter: none; background: var(--background); }
+.card-metric-button { flex: 1; min-width: 0; text-align: left; font: inherit; color: var(--text); background: transparent; border: 0; }
+.persistent-editor { display: contents; }
+.persistent-editor[hidden] { display: none; }
+.brand-block h1 { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clock-brand .wordmark-full { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-gaming:not(.is-arranging) .metrics-grid { height: calc(100% - 153px); grid-template-rows: repeat(2,minmax(0,1.2fr)) repeat(2,minmax(0,1fr)); }
+.preset-gaming .metric-card .metric-main { font-size: 42px; }
+.preset-gaming .fps-card .metric-main { font-size: 64px; }
+.preset-gaming .capacity-card .metric-main { font-size: 34px; }
+.preset-gaming .gaming-gpu-card .metric-main { font-size: 36px; }
+.gaming-gpu-details { margin-top: 3px; font-size: 19px; line-height: 1.25; color: var(--text); font-variant-numeric: tabular-nums; }
+.gaming-gpu-details > div { display: grid; grid-template-columns: 56px 1.3fr 1fr; align-items: baseline; }
+.gaming-gpu-details b { font-size: 14px; color: var(--text); }
+.gaming-gpu-details .gpu-detail-heading { line-height: 1.1; }
+.gaming-gpu-details > small { font-size: 14px; color: var(--text); }
+.gaming-gpu-details strong { font-size: 19px; color: var(--text); margin-left: 6px; }
+.gaming-network { position: relative; z-index: 1; height: 80px; margin-top: 7px; padding: 7px 10px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-solid); color: var(--text); }
+.network-reading { display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--border); padding-left: 12px; min-width: 0; align-self: start; }
+.network-reading:first-child { border-left: 0; padding-left: 2px; }
+.network-reading b { font-size: 14px; line-height: 17px; color: var(--text); white-space: nowrap; }
+.network-reading > span { font-size: 15px; line-height: 18px; color: var(--text); white-space: nowrap; }
+.network-reading strong { font-size: 28px; line-height: 29px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.network-reading strong small { font-size: 15px; margin-left: 5px; color: var(--network); }
+.is-clock-mode .gaming-network { display: none; }
+.preset-gaming.is-media-open .metrics-grid { height: calc(100% - 170px); }
+
+/* Keep supporting readings legible without letting the primary value consume the card. */
+.preset-gaming .metric-card { padding: 7px 10px; }
+.preset-gaming .metric-title { font-size: 15px; letter-spacing: .08em; }
+.preset-gaming .metric-card.gaming-gpu-card .metric-main { font-size: 32px; }
+.preset-gaming .metric-details { margin-top: 5px; gap: 0; }
+.preset-gaming .metric-details > span { margin-right: 10px; margin-bottom: 0; white-space: nowrap; }
+.preset-gaming .metric-range { margin-top: 5px; }
+.preset-gaming .metric-range > span + span { margin-left: 10px; }
+.preset-gaming .metric-bar { margin-top: 4px; }
+
+.dashboard:not(.is-compact) .metric-details { gap: 3px 10px; }
+.dashboard:not(.is-compact) .metric-details > span { margin: 0; white-space: nowrap; }
+.dashboard:not(.is-compact) .metric-range { flex-wrap: wrap; gap: 2px 12px; }
+.dashboard:not(.is-compact) .metric-range > span + span { margin-left: 0; }
+.preset-list .metric-card, .preset-rows .row-card {
+  grid-template-columns: 90px minmax(160px, .8fr) 120px minmax(260px, 1.2fr);
+  column-gap: 10px;
+}
+.dashboard.preset-list .metric-range, .dashboard.preset-rows .row-card .metric-range {
+  flex-direction: column; align-items: flex-start; gap: 0; font-size: 16px;
+}
+.dashboard.preset-list .metric-details, .dashboard.preset-rows .row-card .metric-details {
+  font-size: 16px; line-height: 1.2; gap: 2px 8px;
+}
+.storage-stream > b { font-size: 14px; color: var(--text); letter-spacing: 0; }
+.dashboard:not(.is-compact) .storage-stream small { font-size: 14px; }
+
+/* Approved option B: grouped supporting stats in Gaming Focus. */
+
+ .preset-gaming .metric-card:not(.fps-card) .metric-main {font-size:44px!important;}
+ .dashboard.preset-gaming .metric-details {display:flex;gap:8px;margin-top:4px;}
+
+
+ .dashboard.preset-gaming .metric-range {margin-top:3px;font-size:17px;}
+ .gaming-gpu-details > div:not(.gpu-detail-heading) {background:#ffffff0d;border-bottom:1px solid #ffffff20;padding:0 5px;font-size:20px;}
+ .gaming-gpu-details > small {display:block;margin-top:0;line-height:24px;}
+ .gaming-gpu-details {margin-top:2px;line-height:1.2;}
+ .gaming-gpu-details strong {font-size:20px;}
+ 
+
+/* Apply the approved grouped detail treatment to every layout. */
+.dashboard .metric-details { gap: 8px; }
+.dashboard .metric-details .metric-detail-reading {
+  margin: 0; padding: 1px 12px;
+  background: #ffffff0d; border: 1px solid #ffffff20; border-radius: 5px;
+  color: var(--text); font-size: 20px; line-height: 20px; white-space: nowrap;
+}
+.dashboard .metric-details .metric-detail-reading b {
+  display: block; color: var(--text); font-size: 14px; line-height: 14px; letter-spacing: 0;
+}
+.dashboard.preset-list .metric-details, .dashboard.preset-rows .row-card .metric-details { margin-top: 0; gap: 4px; }
+.dashboard.preset-list .metric-detail-reading, .dashboard.preset-rows .row-card .metric-detail-reading { padding: 1px 5px; font-size: 18px; }
+.preset-rows .hero-card.network-card .metric-main { font-size: 42px; }
+
+/* Approved larger-value option 2: keep labels alongside the gaming readings. */
+.preset-gaming .metric-card:not(.fps-card) .metric-card-top { position: absolute; top: 14px; left: 12px; }
+.preset-gaming .metric-card:not(.fps-card) .metric-value-line { margin-top: 0; }
+
+/* Keep card content above the original-size media player on every layout. */
+.dashboard.is-media-open:not(.is-clock-mode) { padding-top: 0; }
+.dashboard.is-media-open:not(.is-clock-mode) .dashboard-header { height: 42px; padding: 1px 3px 2px; }
+.dashboard.is-media-open:not(.is-clock-mode) .brutalfoundry-logo { width: 36px; height: 36px; flex-basis: 36px; }
+.dashboard.is-media-open:not(.is-clock-mode) .dashboard-header h1 { font-size: 20px; }
+.dashboard.is-media-open:not(.is-clock-mode) .dashboard-clock { font-size: 27px; }
+.dashboard.is-media-open:not(.is-clock-mode) .system-name { margin-top: 0; font-size: 9px; line-height: 10px; }
+.dashboard.is-media-open:not(.is-clock-mode) .eyebrow { margin-bottom: 1px; line-height: 9px; }
+.dashboard.is-media-open:not(.is-clock-mode):not(.preset-gaming):not(.is-compact) .metrics-grid { height: calc(100% - 146px); min-height: 0; }
+.dashboard.is-media-open:not(.is-clock-mode):not(.preset-gaming).is-compact .metrics-grid { height: calc(100% - 114px); min-height: 0; }
+.dashboard.is-media-open:not(.is-clock-mode):not(.preset-gaming) .metric-range { font-size: 17px; gap: 2px 4px; margin-top: 3px; }
+.dashboard.is-media-open:not(.is-clock-mode):not(.preset-gaming) .metric-details { margin-top: 3px; }
+.dashboard.preset-four.is-media-open .hero-card .metric-main { font-size: 52px; }
+.dashboard.preset-six.is-media-open .metric-card { padding: 5px 7px; }
+.dashboard.preset-list.is-media-open .metric-card { padding: 3px 10px; grid-template-rows: minmax(0,1fr) 2px; }
+.dashboard.preset-list.is-media-open .metric-range { line-height: 1.05; }
+
+/* Gaming Focus also reserves the network strip above the media player. */
+.dashboard.preset-gaming.is-media-open { padding-top: 0; }
+.dashboard.preset-gaming.is-media-open .dashboard-header { height: 42px; padding: 1px 3px 2px; }
+.dashboard.preset-gaming.is-media-open .brutalfoundry-logo { width: 36px; height: 36px; flex-basis: 36px; }
+.dashboard.preset-gaming.is-media-open .dashboard-header h1 { font-size: 20px; }
+.dashboard.preset-gaming.is-media-open .dashboard-clock { font-size: 27px; }
+.dashboard.preset-gaming.is-media-open .system-name { margin-top: 0; font-size: 9px; line-height: 10px; }
+.dashboard.preset-gaming.is-media-open .eyebrow { margin-bottom: 1px; line-height: 9px; }
+.dashboard.preset-gaming.is-media-open .metrics-grid { height: calc(100% - 225px); min-height: 0; }
+.dashboard.preset-gaming.is-media-open.is-compact .metrics-grid { height: calc(100% - 193px); }
+.dashboard.preset-gaming.is-media-open .metric-card { padding: 5px 8px; }
+.dashboard.preset-gaming.is-media-open .fps-card .metric-main { font-size: 50px; }
+.dashboard.preset-gaming.is-media-open .fps-game-name { font-size: 16px; line-height: 17px; margin-top: 0; }
+.dashboard.preset-gaming.is-media-open .fps-card .metric-details { font-size: 15px; line-height: 17px; margin-top: 2px; }
+.dashboard.preset-gaming.is-media-open .metric-card:not(.fps-card) .metric-main { font-size: 36px !important; }
+.dashboard.preset-gaming.is-media-open .gaming-gpu-details { font-size: 15px; line-height: 18px; }
+.dashboard.preset-gaming.is-media-open .gaming-gpu-details .gpu-detail-heading { display: none; }
+.dashboard.preset-gaming.is-media-open .gaming-gpu-details > div:not(.gpu-detail-heading) { font-size: 15px; line-height: 18px; }
+.dashboard.preset-gaming.is-media-open .gaming-gpu-details > small { line-height: 18px; }
+.dashboard.preset-gaming.is-media-open .gaming-gpu-details strong { font-size: 16px; }
+.dashboard.preset-gaming.is-media-open .metric-bar { margin-top: 1px; }
+.dashboard.preset-gaming.is-media-open .metric-range { margin-top: 2px; }
+.dashboard.preset-gaming.is-media-open .metric-details { margin-top: 2px; }
+.dashboard.preset-gaming.is-media-open .metric-details .metric-detail-reading { font-size: 16px; line-height: 16px; padding: 0 6px; }
+.dashboard.preset-gaming.is-media-open .metric-details .metric-detail-reading b { font-size: 12px; line-height: 12px; }

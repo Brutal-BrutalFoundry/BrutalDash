@@ -1,0 +1,23 @@
+BrutalDash local .48 test build - NOT RELEASE CERTIFICATION
+
+The .40 version is the confirmed working baseline. The original .47 failed in use.
+This candidate preserves later UI improvements and repairs verified source defects.
+
+CPU usage and memory use native Windows metrics. Bundled PawnIO provides privileged
+CPU temperature, clocks and package power where the CPU module supports the hardware.
+HWiNFO is optional. No motherboard specifications or motherboard-specific setup are required.
+The bundled PawnIO installer is integrity checked. First provisioning can request
+Windows elevation; cancellation must not cause repeated prompts in that extension session.
+
+AM5 SUPPORT HAS NOT BEEN VERIFIED ON AM5 HARDWARE.
+The available local test machine has an Intel Core i7-14700K.
+Do not publish this candidate as proof that AM5 temperature is fixed.
+A release gate requires real AM5 temperature, clock and package-power samples and
+successful setup on a machine without prior PawnIO provisioning. Driver-access or
+module failures must remain explicit; zero must not stand in for a failed read.
+
+Additional release gates: sustained crash-free use; first input after a long idle;
+no busy-cursor launch churn; physical display flicker; fonts and close control on
+the second machine; clock-to-dashboard reconnect with automatic and manual brightness.
+
+The exact local checks and remaining gaps are recorded under qa/v0.1.48 and qa/regression-20260926.

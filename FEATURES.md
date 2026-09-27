@@ -8,7 +8,7 @@
 | GPU | Usage, temperature, hotspot temperature, clock speed, power, VRAM used, and VRAM percent. |
 | Memory | RAM used and RAM percent. |
 | Disk | Live read and write throughput, used space, free space, and capacity percent. |
-| Network | Download and upload throughput. |
+| Network | Download/upload throughput and peaks; Gaming Focus also shows ICMP latency and rolling packet loss to a labeled target. |
 | Gaming | Detected game, FPS, frametime, and 1% low. |
 
 BrutalDash tracks session minimum and maximum values for supported readings. Button 4 clears the current session range and begins a fresh one from the next live sample.
@@ -21,7 +21,7 @@ BrutalDash tracks session minimum and maximum values for supported readings. But
 | `HWiNFO` | HWiNFO Shared Memory is supplying the active telemetry sample. |
 | `HWiNFO+` | HWiNFO is active and native Windows telemetry fills one or more missing values. |
 
-The dashboard automatically selects the best available source. It uses native Windows telemetry as the fallback when HWiNFO is not installed, closed, or does not supply a value.
+Native Windows metrics remain available without HWiNFO. The bundled CPU host uses PawnIO for supported Intel/AMD temperature, clock, and power readings, provisioning it when needed. Native CPU values take priority; optional HWiNFO fills missing values. A source badge does not guarantee every sensor is available.
 
 ## Dashboard editor
 
@@ -29,7 +29,7 @@ The dashboard automatically selects the best available source. It uses native Wi
 - Per-layout workspaces: each layout retains its own saved card arrangement.
 - Move, resize, copy, hide, delete, and configure cards.
 - Change each card's main metric and up to three detail metrics.
-- Arrange Mode lets you drag a card onto another to exchange their complete slots.
+- Hold any dashboard card for 1.5 seconds, drag onto another, and release to swap and auto-save that layout. Normal operation resumes immediately. Explicit Arrange Mode is also available in Customize.
 - Desktop-side settings page for larger-screen editing.
 - Save, export, and import dashboard states.
 - Three hardware layout-memory buttons. Tap to recall and hold to save or overwrite.
@@ -41,7 +41,8 @@ The dashboard automatically selects the best available source. It uses native Wi
 - Adjustable brightness and glow intensity.
 - Normal and compact dashboard modes.
 - Centered, high-contrast card content for at-a-glance reading.
-- BrutalFoundry visual identity and icon.
+- Custom display name and uploaded logo shared across layouts, the dashboard header, and the Foundry Digital clock.
+- Bundled Inter fonts and grouped supporting readings.
 
 ## Alerts
 

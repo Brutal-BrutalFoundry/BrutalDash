@@ -1,0 +1,17 @@
+.choice-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 42px; padding: 8px 11px; border: 1px solid var(--border,#34405d); border-radius: 7px; background: var(--surface-raised,#090d17); color: var(--text,#f6f8ff); font-family: inherit; font-size: 13px; text-align: left; touch-action: manipulation; }
+.choice-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choice-trigger svg { flex-shrink: 0; }
+.choice-trigger:focus-visible { outline: 2px solid var(--accent,#20f7e5); outline-offset: 2px; }
+.settings-stack > label > .choice-trigger, .card-control-top > .choice-trigger { flex: 1; }
+.detail-selects .choice-trigger, .field > .choice-trigger { width: 100%; }
+.choice-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,.8); color: #f6f8ff; font-family: "BrutalDash UI",sans-serif; user-select: none; -webkit-user-select: none; }
+.choice-panel { width: min(560px,100%); max-height: calc(100% - 8px); min-height: 0; display: flex; flex-direction: column; padding: 12px; background: #111522; border: 1px solid #45516a; border-radius: 12px; }
+.choice-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 10px; }
+.choice-heading h2 { margin: 0; color: #f6f8ff; font-size: 19px; font-weight: 700; }
+.choice-heading > button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #45516a; border-radius: 7px; color: #f6f8ff; background: #1c2332; }
+.choice-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; min-height: 0; overflow-y: auto; padding: 3px; touch-action: pan-y; overscroll-behavior: contain; }
+.choice-options > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 10px 12px; color: #f6f8ff; background: #1c2332; border: 1px solid #45516a; border-radius: 7px; font-family: inherit; font-size: 15px; line-height: 1.25; text-align: left; touch-action: manipulation; }
+.choice-options > button[aria-selected="true"] { border-color: var(--choice-accent); color: var(--choice-accent); background: #172d30; }
+.choice-options svg { flex-shrink: 0; }
+.choice-panel button:focus-visible { outline: 2px solid var(--choice-accent); outline-offset: 1px; }
+@media(max-width:480px){.choice-options{grid-template-columns:1fr;}}

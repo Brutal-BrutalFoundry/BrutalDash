@@ -5,17 +5,23 @@ import { readDiskIoRates } from './disk';
 import { readHwInfoSharedMemory, type HwInfoSensor } from './hwinfo';
 import { readNativeSystemMetrics, readProcessorName } from './native';
 import { readNetworkRates } from './network';
+import { NetworkQualityMonitor } from './network-quality';
+import { validProbeTarget } from '../src/network-quality';
+import { displayName, clockLogo } from '../src/branding';
 import { readNvidiaGpuMetrics } from './nvidia';
 import { PresentMonProvider } from './presentmon';
+import { NativeCpuProvider } from './cpu-native';
 import { readFixedDriveSpace, type StorageSpace } from './storage';
 import { readWindowsGpuMetrics } from './windows-gpu';
 import { detachBridgeThingConsole } from './windows-console';
 import type { SystemMediaCommand } from './media-controls';
-import { adjustActiveMediaVolume, readWindowsMediaSnapshot, sendWindowsMediaCommand } from './media-volume';
+import { adjustActiveMediaVolume, readWindowsMediaSnapshot, sendWindowsMediaCommand, stopWindowsMediaSnapshotServer } from './media-volume';
 
 import {
   clonePresetLayout,
+  upgradeGamingLayout,
   cloneLayoutSlots,
+  cloneLayoutProfiles,
   dashboardUiRevision,
   defaultLayout,
   defaultPreferences,
@@ -42,7 +48,8 @@ declare const Deno: {
 
 type DashboardMessage =
   | { type: 'dashboard:get' }
-  | { type: 'dashboard:save'; payload: DashboardState }
+  | { type: 'dashboard:save'; payload: DashboardState; requestId?: string }
+  | { type: 'dashboard:reset-ranges' }
   | { type: 'media:subscribe'; payload: { active: boolean } }
   | { type: 'media:command'; payload: { command: SystemMediaCommand } }
   | { type: 'media:volume'; payload: { delta: number; source: string | null } }
@@ -55,6 +62,27 @@ const STORAGE_REFRESH_MS = 30_000;
 const STATE_KEY_PREFIX = 'dashboard-state:';
 const metricRanges = new Map<MetricKey, { min: number; max: number }>();
 const states = new Map<string, DashboardState>();
+const networkProbes = new Map<string, NetworkQualityMonitor>();
+const saveQueues = new Map<string, Promise<void>>();
+
+function saveDashboard(ctx: ExtensionContext, deviceId: string, value: DashboardState, requestId?: string) {
+  const next = validState(value);
+  if (!next) return;
+  next.layoutProfiles = { ...cloneLayoutProfiles(next.layoutProfiles), [next.preferences.layoutPreset]: cloneLayout(next.layout) };
+  const reply = (type: string, error?: string) => {
+    const message = {type, payload:{requestId,error}};
+    ctx.device(deviceId).send(json(message));
+    if (deviceId === primaryDeviceId(ctx)) mirrorBroadcast(message);
+  };
+  const queued = (saveQueues.get(deviceId) || Promise.resolve()).catch(() => undefined).then(async () => {
+    await ctx.kv.set(stateKey(deviceId), next);
+    states.set(deviceId, next);
+    await sendState(ctx, deviceId, requestId);
+    reply('dashboard:saved');
+  }).catch(error => { ctx.log.error('dashboard save failed',error); reply('dashboard:save-failed','Could not save layout to desktop storage'); });
+  saveQueues.set(deviceId,queued);
+  void queued.finally(() => { if(saveQueues.get(deviceId) === queued) saveQueues.delete(deviceId); });
+}
 let latest: Omit<DashboardPacket, 'alerts'> | null = null;
 let polling = false;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -63,6 +91,7 @@ let storageCheckedAt = 0;
 let hwinfoAvailable: boolean | null = null;
 let activePresentMonGroup: string | null = null;
 let nativeFps: PresentMonProvider | null = null;
+let nativeCpu: NativeCpuProvider | null = null;
 let lastGame: { label: string; processName: string; seenAt: number } | null = null;
 let lastMediaVolumeWarningAt = 0;
 const mediaSubscribers = new Set<string>();
@@ -203,11 +232,14 @@ function validState(value: unknown): DashboardState | null {
     : [];
   const gameInclude = processList(preferences.gameInclude);
   return {
-    layout: cloneLayout(candidate.layout),
+    layout: upgradeGamingLayout(cloneLayout(candidate.layout), preferences.layoutPreset!),
     layoutSlots: cloneLayoutSlots(candidate.layoutSlots),
+    layoutProfiles: cloneLayoutProfiles(candidate.layoutProfiles),
     preferences: {
       ...clonePreferences(defaultPreferences),
       ...preferences,
+      displayName: displayName(preferences.displayName),
+      clockLogo: clockLogo(preferences.clockLogo),
       enabledMetrics: Array.isArray(preferences.enabledMetrics)
         ? preferences.enabledMetrics.filter((metric): metric is MetricKey => metricKeys.includes(metric as MetricKey))
         : [...metricKeys],
@@ -218,6 +250,8 @@ function validState(value: unknown): DashboardState | null {
       clockColorMode: clockColorModes.has(preferences.clockColorMode || '') ? preferences.clockColorMode! : defaultPreferences.clockColorMode,
       clockColor: typeof preferences.clockColor === 'string' && /^#[0-9a-f]{6}$/i.test(preferences.clockColor) ? preferences.clockColor : defaultPreferences.clockColor,
       gameInclude,
+      networkProbeEnabled: preferences.networkProbeEnabled !== false,
+      networkProbeTarget: validProbeTarget(preferences.networkProbeTarget) ? preferences.networkProbeTarget : defaultPreferences.networkProbeTarget,
       gameExclude: processList(preferences.gameExclude).filter(entry => !gameInclude.includes(entry)),
     },
     uiRevision: dashboardUiRevision,
@@ -249,8 +283,10 @@ function stateFromConfig(state: DashboardState, config: Readonly<Record<string, 
   }
   if (changedKey === 'compact' && (raw === 'true' || raw === 'false')) preferences.compact = raw === 'true';
   if (changedKey === 'layoutPreset' && layoutPresets.has(raw as LayoutPreset)) {
+    if(raw === preferences.layoutPreset) return state;
+    const profiles = {...cloneLayoutProfiles(state.layoutProfiles),[preferences.layoutPreset]:cloneLayout(state.layout)};
     preferences.layoutPreset = raw as LayoutPreset;
-    return { ...state, layout: clonePresetLayout(preferences.layoutPreset), preferences, uiRevision: dashboardUiRevision };
+    return { ...state, layout: cloneLayout(profiles[preferences.layoutPreset] || clonePresetLayout(preferences.layoutPreset)), layoutProfiles:profiles, preferences, uiRevision: dashboardUiRevision };
   }
   if (changedKey === 'cpuAlert' || changedKey === 'gpuAlert' || changedKey === 'ramAlert') {
     const value = Number(raw);
@@ -448,7 +484,7 @@ function packetFor(state: DashboardState): DashboardPacket {
       game: null, foreground: null, capacities: { ramGb: null, vramGb: null, storageGb: null }, metrics: blankMetrics(), alerts: [],
     };
   }
-  return { ...latest, alerts: latest.connected ? alerts(latest.metrics, state.preferences) : [] };
+  return { ...latest, networkQuality: state.preferences.networkProbeEnabled && state.preferences.layoutPreset === 'gaming' ? networkProbes.get(state.preferences.networkProbeTarget)?.snapshot() : undefined, alerts: latest.connected ? alerts(latest.metrics, state.preferences) : [] };
 }
 
 function readSensors() {
@@ -459,6 +495,9 @@ function readSensors() {
 
 function nativeFallback(now: number, preferences: DashboardPreferences): Omit<DashboardPacket, 'alerts'> | null {
   const native = readNativeSystemMetrics();
+  const cpuName = readProcessorName();
+  nativeCpu?.update(cpuName, now);
+  const cpuSensors = nativeCpu?.snapshot(now) || null;
   const storage = currentStorageSpace(now);
   const disk = readDiskIoRates();
   const network = readNetworkRates(now);
@@ -474,6 +513,9 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
     if (value !== null) metrics[key] = reading(value, unit);
   };
   assign('cpuUsage', native?.cpuPercent ?? null);
+  assign('cpuTemp', cpuSensors?.cpuTemp ?? null, '°C');
+  assign('cpuClock', cpuSensors?.cpuClock ?? null, 'MHz');
+  assign('cpuPower', cpuSensors?.cpuPower ?? null, 'W');
   assign('ramUsed', native?.ramUsedGb ?? null, 'GB');
   assign('ramPercent', native?.ramPercent ?? null);
   assign('storageUsed', storage?.usedGb ?? null, 'GB');
@@ -502,7 +544,7 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
     pcTimeOffsetMinutes: new Date(now).getTimezoneOffset(),
     source: 'native', fpsSource: frames ? 'presentmon' : null, connected: true,
     telemetryMessage: 'Using native telemetry. To switch to HWiNFO automatically, keep HWiNFO Sensors active (they may be minimized).',
-    cpuName: readProcessorName() || 'Windows system', gpuName: nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU data unavailable'), game: game?.label || null, foreground: foregroundPacket(foreground),
+    cpuName: cpuName || 'Windows system', gpuName: nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU data unavailable'), game: game?.label || null, foreground: foregroundPacket(foreground),
     capacities: { ramGb: native?.ramTotalGb ?? null, vramGb: nvidia?.vramTotalGb ?? null, storageGb: storage?.totalGb ?? null },
     metrics,
   };
@@ -510,6 +552,16 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
 
 async function poll(ctx: ExtensionContext) {
   if (polling) return;
+  const targets = new Set<string>();
+  for (const device of ctx.devices) {
+    const p = states.get(device.id)?.preferences;
+    if (device.active && p?.layoutPreset === 'gaming' && p.networkProbeEnabled && validProbeTarget(p.networkProbeTarget)) targets.add(p.networkProbeTarget);
+  }
+  for (const [target, probe] of networkProbes) if (!targets.has(target)) { probe.stop(); networkProbes.delete(target); }
+  for (const target of [...targets].slice(0, 8)) {
+    if (!networkProbes.has(target)) networkProbes.set(target, new NetworkQualityMonitor(target));
+    networkProbes.get(target)!.update();
+  }
   polling = true;
   const preferences = pollingPreferences(ctx);
   try {
@@ -524,9 +576,9 @@ async function poll(ctx: ExtensionContext) {
       if (value !== null) metrics[key] = reading(value, unit);
     };
     assign('cpuUsage', sensorValue(sensors, ['Total CPU Usage', 'Total CPU Utility'], cpu));
-    assign('cpuTemp', sensorValue(sensors, ['CPU Package', 'Core Max'], cpu));
-    assign('cpuClock', sensorValue(sensors, ['Core Effective Clocks', 'P-core 0 Clock', 'Core Clocks'], cpu));
-    assign('cpuPower', sensorValue(sensors, ['CPU Package Power'], cpu));
+    assign('cpuTemp', sensorValue(sensors, ['CPU (Tctl/Tdie)', 'CPU Die (average)', 'CPU Package', 'Core Max'], cpu));
+    assign('cpuClock', sensorValue(sensors, ['Average Effective Clock', 'Core Effective Clocks', 'P-core 0 Clock', 'Core Clocks'], cpu));
+    assign('cpuPower', sensorValue(sensors, ['CPU Package Power', 'CPU Package Power (SMU)'], cpu));
     assign('gpuUsage', sensorValue(sensors, ['GPU Core Load', 'GPU D3D Usage'], gpu));
     assign('gpuTemp', sensorValue(sensors, ['GPU Temperature'], gpu));
     assign('gpuHotspot', sensorValue(sensors, ['GPU Hot Spot Temperature', 'GPU Hotspot Temperature'], gpu));
@@ -550,6 +602,9 @@ async function poll(ctx: ExtensionContext) {
     assign('networkDown', sensorValue(sensors, ['Current DL rate'], /^Network:/i, 'sum'));
     assign('networkUp', sensorValue(sensors, ['Current UP rate'], /^Network:/i, 'sum'));
     const native = readNativeSystemMetrics();
+    const cpuName = readProcessorName();
+    nativeCpu?.update(cpuName, now);
+    const cpuSensors = nativeCpu?.snapshot(now) || null;
     const network = readNetworkRates(now);
     const disk = readDiskIoRates();
     const nvidia = readNvidiaGpuMetrics();
@@ -561,7 +616,11 @@ async function poll(ctx: ExtensionContext) {
         usedNativeFallback = true;
       }
     };
-    fill('cpuUsage', native?.cpuPercent ?? null);
+    assign('cpuUsage', native?.cpuPercent ?? null);
+    assign('cpuTemp', cpuSensors?.cpuTemp ?? null, '°C');
+    assign('cpuClock', cpuSensors?.cpuClock ?? null, 'MHz');
+    assign('cpuPower', cpuSensors?.cpuPower ?? null, 'W');
+    if (native?.cpuPercent != null || cpuSensors?.cpuTemp != null || cpuSensors?.cpuClock != null || cpuSensors?.cpuPower != null) usedNativeFallback = true;
     fill('ramUsed', native?.ramUsedGb ?? null, 'GB');
     fill('ramPercent', native?.ramPercent ?? null);
     fill('networkDown', network?.downKbps ?? null, 'KB/s');
@@ -598,7 +657,7 @@ async function poll(ctx: ExtensionContext) {
     latest = {
       timestamp: now, clock: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(now)), pcTimeOffsetMinutes: new Date(now).getTimezoneOffset(),
       source: usedNativeFallback ? 'hybrid' : 'hwinfo', fpsSource: frames ? 'presentmon' : metrics.fps.value === null ? null : 'hwinfo', connected: true, telemetryMessage: null,
-      cpuName: hwCpuName !== 'CPU' ? hwCpuName : readProcessorName() || 'Windows system',
+      cpuName: hwCpuName !== 'CPU' ? hwCpuName : cpuName || 'Windows system',
       gpuName: hwGpuName !== 'GPU' ? hwGpuName : nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU'), game: game?.label || null, foreground: foregroundPacket(foreground),
       capacities: {
         ramGb: ramUsedGb !== null && ramAvailableGb !== null ? ramUsedGb + ramAvailableGb : native?.ramTotalGb ?? null,
@@ -642,25 +701,28 @@ async function poll(ctx: ExtensionContext) {
 }
 
 async function loadState(ctx: ExtensionContext, deviceId: string) {
-  const saved = await ctx.kv.get<DashboardState>(stateKey(deviceId));
-  const state = validState(saved) || defaultState();
-  const configured = stateFromConfig(state, ctx.config(deviceId));
-  states.set(deviceId, configured);
-  return configured;
+  const saved = validState(await ctx.kv.get<DashboardState>(stateKey(deviceId)));
+  const state = saved || stateFromConfig(defaultState(), ctx.config(deviceId));
+  states.set(deviceId, state);
+  return state;
 }
 
-async function sendState(ctx: ExtensionContext, deviceId: string) {
+async function sendState(ctx: ExtensionContext, deviceId: string, requestId?: string) {
   const device = ctx.device(deviceId);
   const state = states.get(deviceId) || await loadState(ctx, deviceId);
-  device.send(json({ type: 'dashboard:state', payload: state }));
+  device.send(json({ type: 'dashboard:state', payload: state, ...(requestId ? {requestId} : {}) }));
   device.send(json({ type: 'dashboard:data', payload: packetFor(state) }));
   if (deviceId === primaryDeviceId(ctx)) {
-    mirrorBroadcast({ type: 'dashboard:state', payload: state });
+    mirrorBroadcast({ type: 'dashboard:state', payload: state, ...(requestId ? {requestId} : {}) });
     mirrorBroadcast({ type: 'dashboard:data', payload: packetFor(state) });
   }
 }
 
 async function pollMedia(ctx: ExtensionContext) {
+  for (const id of mediaSubscribers) {
+    const device = ctx.device(id);
+    if (!device.connected || !device.active) mediaSubscribers.delete(id);
+  }
   if (mediaPolling || mediaSubscribers.size === 0) return;
   mediaPolling = true;
   try {
@@ -689,6 +751,8 @@ async function pollMedia(ctx: ExtensionContext) {
       if (device.active) device.send(json({ type: 'media:data', payload: snapshot }));
     }
     mirrorBroadcast({ type: 'media:data', payload: snapshot });
+  } catch (error) {
+    ctx.log.warn(`Windows media poll failed: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
     mediaPolling = false;
   }
@@ -701,7 +765,12 @@ defineExtension({
       info: message => ctx.log.info(message),
       warn: message => ctx.log.warn(message),
     });
+    nativeCpu = new NativeCpuProvider({
+      info: message => ctx.log.info(message),
+      warn: message => ctx.log.warn(message),
+    });
     ctx.on('device', event => {
+      if (event.type === 'disconnected' || !event.device.active) mediaSubscribers.delete(event.device.id);
       // Existing connections are replayed at startup. Send state when a device
       // connects, and when BrutalDash becomes its active app. Sending while
       // inactive would be dropped by the BridgeThing host.
@@ -723,13 +792,14 @@ defineExtension({
         void sendWindowsMediaCommand(payload.payload.command).then(ok => {
           if (!ok) ctx.log.warn('Windows media control unavailable');
           void pollMedia(ctx);
-        });
+        }).catch(error => ctx.log.warn(`Windows media command failed: ${error instanceof Error ? error.message : String(error)}`));
         return;
       }
       if (payload.type === 'media:subscribe') {
         if (payload.payload.active) mediaSubscribers.add(device.id);
         else mediaSubscribers.delete(device.id);
         if (payload.payload.active) void pollMedia(ctx);
+
         return;
       }
       if (payload.type === 'media:volume') {
@@ -743,12 +813,13 @@ defineExtension({
         }).catch(error => ctx.log.warn(`PC media volume failed: ${error instanceof Error ? error.message : String(error)}`));
         return;
       }
+      if (payload.type === 'dashboard:reset-ranges') {
+        metricRanges.clear();
+        return;
+      }
       if (payload.type === 'dashboard:get') void sendState(ctx, device.id).catch(error => ctx.log.error('dashboard request failed', error));
       if (payload.type === 'dashboard:save' && payload.payload && Array.isArray(payload.payload.layout) && payload.payload.preferences) {
-        states.set(device.id, payload.payload);
-        void ctx.kv.set(stateKey(device.id), payload.payload)
-          .then(() => sendState(ctx, device.id))
-          .catch(error => ctx.log.error('dashboard save failed', error));
+        saveDashboard(ctx, device.id, payload.payload, payload.requestId);
       }
     });
     ctx.on('config', (device, key, value) => {
@@ -768,11 +839,16 @@ defineExtension({
     ctx.log.info(`BrutalDash bridge extension started with ${POLL_INTERVAL_MS}ms telemetry polling`);
   },
   stop() {
+    for (const probe of networkProbes.values()) probe.stop();
+    networkProbes.clear();
     clearInterval(timer);
     clearInterval(mediaTimer);
     mediaSubscribers.clear();
+    stopWindowsMediaSnapshotServer();
     nativeFps?.stop();
     nativeFps = null;
+    nativeCpu?.stop();
+    nativeCpu = null;
     for (const socket of mirrorClients) socket.close(1001, 'BrutalDash extension stopping');
     mirrorClients.clear();
     void mirrorServer?.shutdown();

@@ -1,0 +1,5 @@
+﻿BrutalDash standalone CPU telemetry host.
+Low-level PawnIO transport and embedded CPU-access modules are adapted from LibreHardwareMonitor 0.9.6, exact source commit 3d331e3370efb858411f19511373eff65a218701, under MPL-2.0.
+LibreHardwareMonitor source: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+PawnIO licensing is included in PawnIO-COPYING.txt.
+BrutalDash-specific CPU interpretation and host integration are maintained in this source tree; LibreHardwareMonitorLib.dll is not a runtime dependency.

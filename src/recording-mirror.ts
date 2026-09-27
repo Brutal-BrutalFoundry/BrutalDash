@@ -196,6 +196,7 @@ export class RecordingMirrorClient {
       clientY: point.y,
       pointerId: input.pointerId,
       pointerType: input.pointerType || "touch",
+      isPrimary: true,
       button: input.button,
       buttons: input.buttons,
       bubbles: true,

@@ -54,10 +54,10 @@ function executableCandidates() {
   return [
     // Installed BridgeThing extensions are extracted under extension/, so the
     // release bundle keeps its private PresentMon copy beside desktop.mjs.
-    windowsPath(new URL('./vendor/presentmon/PresentMon.exe', import.meta.url)),
-    windowsPath(new URL('../vendor/presentmon/PresentMon.exe', import.meta.url)),
-    windowsPath(new URL('../public/vendor/presentmon/PresentMon.exe', import.meta.url)),
-    windowsPath(new URL('../../public/vendor/presentmon/PresentMon.exe', import.meta.url)),
+    windowsPath(new URL('./vendor/presentmon/BrutalDashPresentMonHost.exe', import.meta.url)),
+    windowsPath(new URL('../vendor/presentmon/BrutalDashPresentMonHost.exe', import.meta.url)),
+    windowsPath(new URL('../public/vendor/presentmon/BrutalDashPresentMonHost.exe', import.meta.url)),
+    windowsPath(new URL('../../public/vendor/presentmon/BrutalDashPresentMonHost.exe', import.meta.url)),
   ];
 }
 

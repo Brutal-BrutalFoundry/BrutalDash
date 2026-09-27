@@ -1,0 +1,8 @@
+.branding-controls { display: grid; gap: 9px; padding: 10px; border: 1px solid var(--border,#354052); border-radius: 8px; }
+.branding-controls > label { display: grid; grid-template-columns: 100px minmax(0,1fr); align-items: center; gap: 10px; }
+.branding-controls input { min-width: 0; width: 100%; font: inherit; }
+.branding-controls small { color: var(--muted,#b3bfd2); font-size: 11px; line-height: 1.4; }
+.branding-logo-row { display: flex; align-items: center; gap: 14px; }
+.branding-logo-row img { width: 54px; height: 54px; object-fit: contain; }
+.branding-logo-row label { display: grid; gap: 6px; min-width: 0; }
+.branding-controls p { color: #ff8798; margin: 0; }

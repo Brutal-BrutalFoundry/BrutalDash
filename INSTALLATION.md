@@ -17,9 +17,11 @@ HWiNFO is not required. BrutalDash starts with native Windows telemetry and adds
 2. Open **Apps** in BridgeThing Desktop.
 3. Choose **Install webapp bundle**.
 4. Select `BrutalDash-<version>.zip`.
-5. Review and accept the two local extension permissions:
+5. Review and accept the local extension permissions:
    - **Run** starts the bundled, local telemetry and FPS helpers.
-   - **FFI** reads HWiNFO Shared Memory only when HWiNFO is installed and configured for it.
+   - **FFI** accesses native Windows APIs, including ICMP probing and optional HWiNFO Shared Memory.
+   - **Network: 127.0.0.1:8894** allows the local BridgeThing connection.
+   - If Windows requests elevation for bundled PawnIO setup, approve it to enable privileged CPU sensor access. No motherboard-specific setup is required.
 6. Select BrutalDash in the installed-app list and put it on the connected device screen.
 7. Wait for the status badge to report **NATIVE**, **HWiNFO**, or **HWiNFO+**. The first two indicate that telemetry is active. `HWiNFO+` means HWiNFO is supplying data while native Windows collection fills a value HWiNFO did not provide.
 
@@ -37,7 +39,7 @@ HWiNFO adds richer sensor information. It does not replace the native fallback.
 2. Enable **Shared Memory Support**.
 3. Start **Sensors** or **Sensor Status**. A summary-only HWiNFO window does not start sensor data.
 4. If you prefer HWiNFO out of the way, use its Sensors-only startup option and minimize the Sensors window.
-5. Return to BrutalDash. It automatically prefers HWiNFO when a valid shared-memory sample is available.
+5. Return to BrutalDash. HWiNFO enriches available telemetry; native CPU readings remain preferred when available.
 
 If HWiNFO stops, BrutalDash returns to native telemetry without a manual source switch.
 
@@ -56,7 +58,7 @@ From there you can:
 - export a dashboard backup or import a prior backup
 - choose the disconnected clock face and clock appearance
 
-Use **Save dashboard** after editing. A saved layout is restored when you switch away and come back, restart BridgeThing, or update BrutalDash.
+Direct 1.5-second hold-and-drag card swaps save automatically without confirmation. Use **Save dashboard** after changes in the customization editor. A saved layout is restored when you switch away and come back, restart BridgeThing, or update BrutalDash.
 
 ## Car Thing controls
 
@@ -65,10 +67,11 @@ Use **Save dashboard** after editing. A saved layout is restored when you switch
 | Button 1, 2, or 3, tap | Recall the saved layout assigned to that button. |
 | Button 1, 2, or 3, hold | Save the current layout to that button. Holding it again replaces that button's saved layout. |
 | Button 4 | Reset the current session's minimum and maximum readings. |
-| Mode or Back button | Open or close the PC media drawer. In clock mode, it toggles automatic display dimming. |
+| Mode button | Open or close Customize. Unsaved edits offer Save, Discard, or Keep editing. In clock mode, toggle automatic display dimming. |
+| Back button | Open or close the PC media drawer. In clock mode, toggle automatic display dimming. |
 | Wheel while the media drawer is open | Adjust the active PC media session's volume. |
 | Wheel while the clock is active | Adjust display brightness manually. Turn automatic dimming back on with the Mode or Back button. |
-| Touch and drag in Arrange Mode | Drag a card onto another card to swap their complete positions and sizes. |
+| Hold a card for 1.5 seconds, then drag | Drop onto another card to swap and automatically save the arrangement for that layout. |
 
 ## Gaming and FPS
 
@@ -89,7 +92,7 @@ The media drawer controls the active Windows media session on the PC. It is inte
 - The drawer shows artwork, title, artist, progress, and playback state when the active PC app supplies them.
 - Previous, play or pause, and next remain PC-side controls. They do not intentionally transfer Spotify playback to a phone.
 - The wheel adjusts the active media session volume while the drawer is open.
-- Compact mode also uses a compact media drawer.
+- The dashboard makes room for the player while preserving the header, card readings, and network bar.
 
 ## Disconnected clock
 

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <AssemblyName>BrutalDashCpuHost</AssemblyName>
+    <RootNamespace>BrutalDashCpuHost</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\PawnIo\IntelMSR.bin" />
+    <EmbeddedResource Include="Resources\PawnIo\AMDFamily17.bin" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.269">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>

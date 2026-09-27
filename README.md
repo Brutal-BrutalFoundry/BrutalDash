@@ -10,13 +10,18 @@ It is built for readability at a glance: near-live CPU, GPU, RAM, VRAM, disk, ne
 
 **New here?** Start with [INSTALLATION.md](INSTALLATION.md). For the full capability list, see [FEATURES.md](FEATURES.md).
 
+**Current stable release: [v0.1.51](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.51).**
+
 ## Highlights
 
 - Native Windows telemetry out of the box: CPU, GPU, RAM, VRAM, disk I/O, storage capacity, and network throughput.
 - Native in-game FPS, frametime, and game detection through bundled PresentMon.
-- Optional HWiNFO Shared Memory integration for expanded sensor detail; BrutalDash automatically prefers it when available and returns to native telemetry when it is not.
+- Bundled PawnIO CPU temperature, clocks, and power, with optional HWiNFO enrichment. Native CPU readings are preferred when available.
 - Per-session minimum and maximum readings, including Button 4 reset.
-- Rearrangeable cards, saved layout presets, themes, custom accent, glow, brightness, metric selection, and alerts.
+- Hold any card for 1.5 seconds, drag onto another, and release to swap. The arrangement saves automatically for that layout.
+- Saved layout presets, themes, custom accent, glow, brightness, metric selection, and alerts.
+- Shared custom display name and uploaded logo for the dashboard header and Foundry Digital clock.
+- Gaming Focus combines GPU/VRAM and includes throughput, target-labeled latency, and rolling packet loss.
 - Compact, PC-native media drawer with artwork, title, artist, progress, playback controls, and active-media volume.
 - Digital and analog disconnected clock faces.
 
@@ -48,15 +53,15 @@ npm run share
 
 ## Validation
 
-v0.1.37 was captured on a physical Car Thing in live telemetry, game/FPS, media drawer, clock, and customization modes. The public catalog was validated against BridgeThing’s schema and the published ZIP checksum.
+v0.1.51 is the user-accepted stable build. Production UI interaction checks, native CPU provisioning and provider tests, extension persistence checks, and package integrity checks passed. See [release validation](docs/validation-0.1.51.md) for the distinction between automated checks, physical-device testing, and hardware coverage.
 
 ## Third-party software
 
-BrutalDash redistributes Intel PresentMon 2.5.1 for local FPS capture. Its license and notice are included in `public/vendor/presentmon/`.
+BrutalDash redistributes Intel PresentMon 2.5.1 for local FPS capture. Its license and notice are included in `public/vendor/presentmon/`. The bundled CPU host includes PawnIO and LibreHardwareMonitor-derived transport/modules with their notices in `extension/vendor/cpu-host/`; corresponding CPU-host source is in `native/cpu-host/`. Font licenses are in `src/fonts/`.
 
 ## License
 
-BrutalDash is released under the [MIT License](LICENSE). PresentMon remains subject to its own included license.
+BrutalDash is released under the [MIT License](LICENSE). Redistributed components remain subject to their own included licenses.
 
 ---
 

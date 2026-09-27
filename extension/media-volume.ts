@@ -1,117 +1,112 @@
-export type MediaVolumeResult = {
-  ok: boolean;
-  error: string | null;
-  process: string | null;
-  volume: number | null;
-};
-
+export type MediaVolumeResult = { ok: boolean; error: string | null; process: string | null; volume: number | null };
 export type WindowsMediaSnapshot = {
-  ok: boolean;
-  error: string | null;
-  source: string | null;
-  title: string | null;
-  artist: string | null;
-  album: string | null;
-  playback: string | null;
-  positionMs: number;
-  durationMs: number;
-  artwork: string | null;
+  ok: boolean; error: string | null; source: string | null; title: string | null;
+  artist: string | null; album: string | null; playback: string | null;
+  positionMs: number; durationMs: number; artwork: string | null;
 };
-
-type DenoCommand = {
-  output(): Promise<{ success: boolean; code: number; stdout: Uint8Array; stderr: Uint8Array }>;
+type Child = {
+  stdin: WritableStream<Uint8Array>; stdout: ReadableStream<Uint8Array>;
+  status: Promise<{ success: boolean; code: number }>; kill(signal?: string): void;
 };
-
-type DenoRuntime = {
-  build: { os: string };
-  Command: new (command: string, options: { args: string[]; stdout: 'piped'; stderr: 'piped' }) => DenoCommand;
-};
-
-const decoder = new TextDecoder();
-
-function runtime(): DenoRuntime | null {
-  const candidate = (globalThis as typeof globalThis & { Deno?: DenoRuntime }).Deno;
-  return candidate && candidate.build.os === 'windows' ? candidate : null;
+type Runtime = { build: { os: string }; Command: new (path: string, options: {
+  args: string[]; stdin: 'piped'; stdout: 'piped'; stderr: 'null';
+}) => { spawn(): Child } };
+type Session = { child: Child; writer: WritableStreamDefaultWriter<Uint8Array>; reader: ReadableStreamDefaultReader<Uint8Array>; decoder: TextDecoder; buffer: string };
+const encoder = new TextEncoder();
+const REQUEST_TIMEOUT_MS = 2500;
+const RETRY_MS = 5000;
+let session: Session | null = null;
+let retryAt = 0;
+let queue: Promise<unknown> = Promise.resolve();
+let queued = 0;
+function runtime(): Runtime | null {
+  const value = (globalThis as typeof globalThis & { Deno?: Runtime }).Deno;
+  return value?.build.os === 'windows' ? value : null;
 }
-
-function windowsPath(url: URL) {
-  const decoded = decodeURIComponent(url.pathname).replace(/^\/([A-Za-z]:)/, '$1');
-  return decoded.replace(/\//g, '\\');
-}
-
 function executableCandidates() {
-  return [
-    windowsPath(new URL('./vendor/media-host/BrutalDashMediaHost.exe', import.meta.url)),
-    windowsPath(new URL('../vendor/media-host/BrutalDashMediaHost.exe', import.meta.url)),
-    windowsPath(new URL('../public/vendor/media-host/BrutalDashMediaHost.exe', import.meta.url)),
-  ];
+  return ['./vendor/media-host/', '../vendor/media-host/', '../public/vendor/media-host/'].map(path =>
+    decodeURIComponent(new URL(`${path}BrutalDashMediaHost.exe`, import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1').replace(/\//g, '\\'));
 }
-
-function unavailable(error: string): MediaVolumeResult {
-  return { ok: false, error, process: null, volume: null };
+function stop(current: Session) {
+  if (session === current) session = null;
+  try { current.child.kill('SIGTERM'); } catch { /* already exited */ }
+  void current.reader.cancel().catch(() => undefined).finally(() => { try { current.reader.releaseLock(); } catch {} });
+  void current.writer.abort().catch(() => undefined).finally(() => { try { current.writer.releaseLock(); } catch {} });
 }
-
-function parseResult(stdout: Uint8Array): MediaVolumeResult | null {
-  try {
-    const parsed = JSON.parse(decoder.decode(stdout)) as Partial<MediaVolumeResult>;
-    if (typeof parsed.ok !== 'boolean') return null;
-    return {
-      ok: parsed.ok,
-      error: typeof parsed.error === 'string' ? parsed.error : null,
-      process: typeof parsed.process === 'string' ? parsed.process : null,
-      volume: typeof parsed.volume === 'number' && Number.isFinite(parsed.volume) ? parsed.volume : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function invoke(args: string[]): Promise<{ output: Uint8Array; code: number; error: string } | null> {
+export function stopWindowsMediaSnapshotServer() { if (session) stop(session); }
+export async function startWindowsMediaSnapshotServer(): Promise<boolean> {
+  if (session) return true;
   const deno = runtime();
-  if (!deno) return null;
+  if (!deno || Date.now() < retryAt) return false;
   for (const executable of executableCandidates()) {
     try {
-      const result = await new deno.Command(executable, { args, stdout: 'piped', stderr: 'piped' }).output();
-      return { output: result.stdout, code: result.code, error: decoder.decode(result.stderr).trim() };
+      const child = new deno.Command(executable, { args: ['--server'], stdin: 'piped', stdout: 'piped', stderr: 'null' }).spawn();
+      const current = { child, writer: child.stdin.getWriter(), reader: child.stdout.getReader(), decoder: new TextDecoder(), buffer: '' };
+      session = current;
+      void child.status.then(() => {
+        if (session === current) { retryAt = Date.now() + RETRY_MS; stop(current); }
+      }).catch(() => { if (session === current) { retryAt = Date.now() + RETRY_MS; stop(current); } });
+      return true;
     } catch { /* try the next packaged/development location */ }
   }
-  return null;
+  retryAt = Date.now() + RETRY_MS;
+  return false;
 }
-
+async function line(current: Session): Promise<string> {
+  for (;;) {
+    const newline = current.buffer.indexOf('\n');
+    if (newline >= 0) {
+      const value = current.buffer.slice(0, newline).replace(/\r$/, '');
+      current.buffer = current.buffer.slice(newline + 1);
+      return value;
+    }
+    const chunk = await current.reader.read();
+    if (chunk.done) throw new Error('Windows media helper exited');
+    current.buffer += current.decoder.decode(chunk.value, { stream: true });
+    if (current.buffer.length > 256 * 1024) throw new Error('Windows media response too large');
+  }
+}
+async function request(command: string): Promise<Record<string, unknown>> {
+  // One stream with a bounded backlog: wheel bursts cannot create a process per
+  // notch, overlap reads, or accumulate commands indefinitely during a hang.
+  if (queued >= 4) return { ok: false, error: 'Windows media helper is busy' };
+  queued++;
+  const task = queue.then(async () => {
+    if (!await startWindowsMediaSnapshotServer() || !session) return { ok: false, error: 'Windows media helper is unavailable' };
+    const current = session;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const response = await Promise.race([
+        (async () => { await current.writer.write(encoder.encode(`${command}\n`)); return await line(current); })(),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Windows media helper timed out')), REQUEST_TIMEOUT_MS); }),
+      ]);
+      const parsed: unknown = JSON.parse(response);
+      if (!parsed || typeof parsed !== 'object' || typeof (parsed as { ok?: unknown }).ok !== 'boolean') throw new Error('Invalid Windows media response');
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      retryAt = Date.now() + RETRY_MS;
+      stop(current);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    } finally { clearTimeout(timer); }
+  });
+  queue = task.catch(() => undefined);
+  try { return await task; } finally { queued--; }
+}
+const stringOrNull = (value: unknown) => typeof value === 'string' ? value : null;
+const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : null;
 export async function readWindowsMediaSnapshot(includeArtwork = false): Promise<WindowsMediaSnapshot> {
-  const result = await invoke(includeArtwork ? ['--snapshot', '--artwork'] : ['--snapshot']);
-  if (!result) return { ok: false, error: 'Windows media helper is unavailable', source: null, title: null, artist: null, album: null, playback: null, positionMs: 0, durationMs: 0, artwork: null };
-  try {
-    const parsed = JSON.parse(decoder.decode(result.output)) as WindowsMediaSnapshot;
-    return parsed;
-  } catch {
-    return { ok: false, error: result.error || `Windows media helper exited with code ${result.code}`, source: null, title: null, artist: null, album: null, playback: null, positionMs: 0, durationMs: 0, artwork: null };
-  }
+  const value = await request(includeArtwork ? 'snapshot-artwork' : 'snapshot');
+  return { ok: value.ok === true, error: stringOrNull(value.error), source: stringOrNull(value.source), title: stringOrNull(value.title), artist: stringOrNull(value.artist), album: stringOrNull(value.album), playback: stringOrNull(value.playback), positionMs: finite(value.positionMs) ?? 0, durationMs: finite(value.durationMs) ?? 0, artwork: stringOrNull(value.artwork) };
 }
-
 export async function sendWindowsMediaCommand(command: 'previous' | 'playPause' | 'next'): Promise<boolean> {
-  const result = await invoke(['--command', command]);
-  if (!result) return false;
-  try { return Boolean((JSON.parse(decoder.decode(result.output)) as { ok?: unknown }).ok); }
-  catch { return false; }
+  if (!['previous', 'playPause', 'next'].includes(command)) return false;
+  return (await request(`command\t${command}`)).ok === true;
 }
-
-/**
- * Changes only the Core Audio session whose process matches the media source
- * hint. It never falls back to endpoint/master volume or a phone API.
- */
+/** Changes only the matching app; never falls back to endpoint/master volume or a phone API. */
 export async function adjustActiveMediaVolume(delta: number, sourceHint: string | null): Promise<MediaVolumeResult> {
-  const hint = sourceHint?.trim().slice(0, 120) || '';
-  if (!runtime()) return unavailable('Windows media volume is unavailable');
-  if (!hint) return unavailable('No active media source');
-  if (!Number.isFinite(delta) || delta === 0) return unavailable('Invalid media volume request');
-  const boundedDelta = Math.max(-0.2, Math.min(0.2, delta));
-  let lastError = 'Windows media helper is unavailable';
-  const output = await invoke(['--hint', hint, '--delta', String(boundedDelta)]);
-  if (output) {
-    const parsed = parseResult(output.output);
-    if (parsed) return parsed;
-    lastError = output.error || `Windows media helper exited with code ${output.code}`;
-  }
-  return unavailable(lastError);
+  const hint = typeof sourceHint === 'string' ? sourceHint.trim().slice(0, 120) : '';
+  if (!hint || !Number.isFinite(delta) || delta === 0) return { ok: false, error: 'Invalid media volume request', process: null, volume: null };
+  const encodedHint = btoa(Array.from(encoder.encode(hint), b => String.fromCharCode(b)).join(''));
+  const value = await request(`volume\t${encodedHint}\t${Math.max(-0.2, Math.min(0.2, delta))}`);
+  return { ok: value.ok === true, error: stringOrNull(value.error), process: stringOrNull(value.process), volume: finite(value.volume) };
 }

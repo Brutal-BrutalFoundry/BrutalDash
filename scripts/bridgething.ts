@@ -13,7 +13,7 @@ var DAEMON_PROXY_PATH = '/__bridgething';
 
 // ../webapp-shared/src/extension.ts
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createRequire as createRequire2 } from 'node:module';
 import { homedir, platform } from 'node:os';
 import { delimiter, dirname, join as join2, resolve } from 'node:path';
@@ -468,6 +468,7 @@ class ExtensionDevHost {
   }
   async start() {
     mkdirSync(this.dataDir, { recursive: true });
+    cpSync(resolve(this.opts.root, 'extension/vendor'), resolve(this.dataDir, 'vendor'), { recursive: true, force: true });
     this.deno = await resolveDeno(this.opts.root);
     const esbuild = await import('esbuild');
     this.context = await esbuild.context({

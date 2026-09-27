@@ -1,0 +1,4 @@
+CreateFile
+DeviceIoControl
+WIN32_ERROR
+HRESULT_FROM_WIN32

@@ -1,6 +1,14 @@
+@font-face {
+  font-family: "BrutalDash UI";
+  src: url("../src/fonts/Inter-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "BrutalDash UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #0a0b13;
   color: #f5f7ff;
 }
@@ -39,7 +47,7 @@ code { color: #20f7e5; font-size: .82rem; }
 .details { display: grid; grid-template-columns: 135px repeat(3, minmax(0, 1fr)); align-items: center; gap: 7px; margin-top: 12px; font-size: .73rem; color: #aebbd5; font-weight: 700; }
 .details select { min-width: 0; padding: 7px; border: 1px solid #34405d; border-radius: 7px; background: #090d17; color: #f6f8ff; font: inherit; }
 footer { position: sticky; bottom: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 24px -12px -36px; padding: 14px 12px; border-top: 1px solid #2e3b56; background: rgba(10, 11, 19, .93); backdrop-filter: blur(10px); }
-button { min-height: 39px; padding: 8px 14px; border: 1px solid transparent; border-radius: 8px; background: #20f7e5; color: #06100f; cursor: pointer; font: 800 .84rem/1 inherit; }
+button { min-height: 39px; padding: 8px 14px; border: 1px solid transparent; border-radius: 8px; background: #20f7e5; color: #06100f; cursor: pointer; font-family: inherit; font-weight: 800; font-size: .84rem; line-height: 1; }
 button.secondary, button.text-button { border-color: #34405d; background: #182238; color: #e7ecfb; }
 button.text-button { min-height: 28px; padding: 4px 7px; font-size: .72rem; }
 button:disabled { opacity: .45; cursor: not-allowed; }
