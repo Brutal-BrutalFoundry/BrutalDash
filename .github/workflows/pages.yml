@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'store/**'
+      - 'scripts/prepare-store-downloads.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -33,6 +34,11 @@ jobs:
             git ls-files -- '*.zip'
             exit 1
           fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare verified browser-readable downloads
+        run: node scripts/prepare-store-downloads.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
