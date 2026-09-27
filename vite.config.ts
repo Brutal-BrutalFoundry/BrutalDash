@@ -1,3 +1,4 @@
+import {verifyBatteryPayload} from './scripts/battery-payload.ts';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
@@ -29,6 +30,8 @@ function packageNativeTools() {
       if (font.toString('ascii', 0, 4) !== 'wOF2') throw new Error('Bundled Inter WOFF2 font is missing or invalid');
     },
     closeBundle() {
+      verifyBatteryPayload(resolve('extension/vendor/battery-host'));
+      cpSync(resolve('extension/vendor/battery-host'),resolve('dist/extension/vendor/battery-host'),{recursive:true,filter:path=>!/__pycache__|\.pyc$/.test(path)});
       const source = resolve('public/vendor/presentmon');
       const bundled = resolve('dist/extension/vendor/presentmon');
       cpSync(source, bundled, { recursive: true });

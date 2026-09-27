@@ -31,6 +31,14 @@ Install the newer ZIP through the same **Install webapp bundle** flow. Do not un
 
 After an update, confirm the version shown inside BrutalDash. Your chosen layout, layout workspaces, button memories, appearance settings, game rules, and card settings should remain in place.
 
+## Device batteries
+
+Choose the Devices layout, or add a Device Battery card to an existing layout. Grid, List and Single views share the same readings. Swipe up/down to page; hold and drag to swap devices. Ordering saves automatically.
+
+The battery helper and runtime are bundled. No Python, HaloBattery, or vendor app installation is needed. Already-configured BridgeThing devices use the normal ZIP installation; BrutalDash does not install firmware.
+
+Battery levels refresh about every 30 seconds. Support depends on the device model and connection mode. Sleeping or disconnected devices may disappear until they respond again. Time estimates learn from actual percentage changes and remain approximate; Learning or Updating appears when there is not enough current evidence.
+
 ## Optional HWiNFO integration
 
 HWiNFO adds richer sensor information. It does not replace the native fallback.

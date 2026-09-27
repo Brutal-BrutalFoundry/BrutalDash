@@ -8,13 +8,14 @@ export type ThemeName =
   | "amber"
   | "oled";
 
-export type LayoutPreset = "four" | "rows" | "list" | "gaming" | "six" | "paged";
+export type LayoutPreset = "four" | "rows" | "list" | "gaming" | "six" | "paged" | "devices";
 export type ClockMode = "automatic" | "dashboard" | "clock";
 export type ClockFace = "bold" | "foundry" | "minimal" | "analog-foundry" | "analog-minimal";
 export type ClockFormat = "12" | "24";
 export type ClockColorMode = "theme" | "custom";
 
 export type MetricKey =
+  | "peripherals"
   | "gpuUsage"
   | "gpuTemp"
   | "gpuHotspot"
@@ -62,6 +63,7 @@ export type DashboardAlert = {
 };
 
 export type DashboardPacket = {
+  peripherals?: import("./peripherals").PeripheralSnapshot;
   networkQuality?: import('./network-quality').NetworkQuality;
   timestamp: number;
   clock: string;
@@ -80,6 +82,11 @@ export type DashboardPacket = {
 };
 
 export type LayoutItem = {
+  deviceOrder?: string[];
+  deviceView?: 'grid' | 'rows' | 'focus';
+  deviceIcons?: 'solid' | 'outline';
+  devicePulse?: boolean;
+  deviceEstimates?: boolean;
   id: string;
   metric: MetricKey;
   details: MetricKey[];
@@ -132,7 +139,7 @@ export type DashboardState = {
 
 export function cloneLayoutProfiles(profiles?: DashboardState['layoutProfiles']): NonNullable<DashboardState['layoutProfiles']> {
   const result: NonNullable<DashboardState['layoutProfiles']> = {};
-  for (const preset of ['four','rows','list','gaming','six','paged'] as const) {
+  for (const preset of ['four','rows','list','gaming','six','paged','devices'] as const) {
     const items = profiles?.[preset];
     if (Array.isArray(items) && items.length <= 18 && items.every(item => item && typeof item.id === 'string' && metricKeys.includes(item.metric) && Array.isArray(item.details) && item.details.every(key => metricKeys.includes(key)) && [item.x,item.y,item.w,item.h].every(Number.isFinite) && item.x >= 0 && item.x < 6 && item.y >= 0 && item.y <= 11 && item.w >= 1 && item.w <= 6 && item.h >= 1 && item.h <= 4)) {
       result[preset] = upgradeGamingLayout(items.map(item => ({...item, details:[...item.details]})),preset);
@@ -174,6 +181,7 @@ export function swapLayoutSlots(layout: LayoutItem[], sourceId: string, targetId
 }
 
 export const metricKeys: MetricKey[] = [
+  "peripherals",
   "gpuUsage",
   "gpuTemp",
   "gpuHotspot",
@@ -211,6 +219,7 @@ const card = (
 ): LayoutItem => ({ id, metric, details, x, y, w, h, hidden: false, page });
 
 export const presetLayouts: Record<LayoutPreset, LayoutItem[]> = {
+  devices: [card("devices", "peripherals", 0, 0, 6, 4, [])],
   four: [
     card("gpu", "gpuUsage", 0, 0, 3, 2, ["gpuTemp", "gpuPower", "vramUsed"]),
     card("cpu", "cpuUsage", 3, 0, 3, 2, ["cpuTemp", "cpuClock", "cpuPower"]),

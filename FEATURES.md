@@ -73,3 +73,11 @@ Configure threshold alerts for CPU temperature, GPU temperature, and RAM use. Al
 - 12-hour or 24-hour time, optional date, theme or custom clock color.
 - Manual clock brightness with the wheel.
 - Automatic dimming can be restored with the Mode or Back button while clock mode is active.
+
+## Device Battery
+
+- Dedicated Grid, List and Single views and a reusable card for other layouts.
+- Whole-card vertical paging and automatic saving of hold-and-drag device order.
+- Percentage-based colors, optional charging pulse, solid/outline icons and learned time estimates.
+- Bundled HaloBattery 1.11.0 providers plus an ASUS keyboard reader; no separate runtime installation.
+- Locally tested with Audeze Maxwell, G502 X PLUS and Scope II 96 via OMNI. Other models retain upstream support limits; a detected receiver does not guarantee readable battery data.

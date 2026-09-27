@@ -10,7 +10,7 @@ It is built for readability at a glance: near-live CPU, GPU, RAM, VRAM, disk, ne
 
 **New here?** Start with [INSTALLATION.md](INSTALLATION.md). For the full capability list, see [FEATURES.md](FEATURES.md).
 
-**Current stable release: [v0.1.51](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.51).**
+**Current stable release: [v0.1.52](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.52).**
 
 ## Highlights
 
@@ -24,6 +24,8 @@ It is built for readability at a glance: near-live CPU, GPU, RAM, VRAM, disk, ne
 - Gaming Focus combines GPU/VRAM and includes throughput, target-labeled latency, and rolling packet loss.
 - Compact, PC-native media drawer with artwork, title, artist, progress, playback controls, and active-media volume.
 - Digital and analog disconnected clock faces.
+
+- Device Battery page with Grid, List and Single views, plus a battery card for any layout. Percentage colors, charging animation and learned time estimates.
 
 ## Requirements
 
@@ -53,11 +55,13 @@ npm run share
 
 ## Validation
 
-v0.1.51 is the user-accepted stable build. Production UI interaction checks, native CPU provisioning and provider tests, extension persistence checks, and package integrity checks passed. See [release validation](docs/validation-0.1.51.md) for the distinction between automated checks, physical-device testing, and hardware coverage.
+v0.1.52 adds wireless device batteries. Packaged UI tests, provider and estimator checks, physical-device touch and idle tests, and package integrity checks passed. See [release validation](docs/validation-0.1.52.md) for the distinction between automated checks, physical-device testing, and hardware coverage.
 
 ## Third-party software
 
 BrutalDash redistributes Intel PresentMon 2.5.1 for local FPS capture. Its license and notice are included in `public/vendor/presentmon/`. The bundled CPU host includes PawnIO and LibreHardwareMonitor-derived transport/modules with their notices in `extension/vendor/cpu-host/`; corresponding CPU-host source is in `native/cpu-host/`. Font licenses are in `src/fonts/`.
+
+Battery providers and deduplication are adapted from [HaloBattery](https://github.com/HeyOkay/HaloBattery) under its included MIT license, alongside a separate ASUS reader. The bundled Python runtime and HID binding include their licenses in `extension/vendor/battery-host/`.
 
 ## License
 

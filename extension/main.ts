@@ -1,3 +1,4 @@
+import {PeripheralProvider} from './peripherals';
 import { asJson, defineExtension, json, type ExtensionContext } from '@bridgething/extension';
 import { readForegroundApp, type ForegroundApp } from './foreground';
 import { detectedGame, foregroundPacket, fpsCaptureTarget, gameCandidate, processFileName } from './game';
@@ -92,6 +93,7 @@ let hwinfoAvailable: boolean | null = null;
 let activePresentMonGroup: string | null = null;
 let nativeFps: PresentMonProvider | null = null;
 let nativeCpu: NativeCpuProvider | null = null;
+let peripheralProvider: PeripheralProvider | null = null;
 let lastGame: { label: string; processName: string; seenAt: number } | null = null;
 let lastMediaVolumeWarningAt = 0;
 const mediaSubscribers = new Set<string>();
@@ -174,7 +176,7 @@ const finite = (value: unknown): number | null =>
 const reading = (value: number | null, unit: string): MetricValue => ({ value, unit, min: null, max: null });
 const empty = (unit: string): MetricValue => reading(null, unit);
 const themes = new Set<ThemeName>(['rog', 'nvidia', 'miami', 'aurora', 'synthwave', 'arctic', 'amber', 'oled']);
-const layoutPresets = new Set<LayoutPreset>(['four', 'rows', 'list', 'gaming', 'six', 'paged']);
+const layoutPresets = new Set<LayoutPreset>(['four', 'rows', 'list', 'gaming', 'six', 'paged', 'devices']);
 const clockModes = new Set(['automatic', 'dashboard', 'clock']);
 const clockFaces = new Set(['bold', 'foundry', 'minimal', 'analog-foundry', 'analog-minimal']);
 const clockFormats = new Set(['12', '24']);
@@ -434,6 +436,7 @@ function parentHardwareName(sensors: HwInfoSensor[], kind: 'cpu' | 'gpu') {
 
 function blankMetrics(): TelemetryMetrics {
   return {
+    peripherals: reading(null, ''),
     gpuUsage: empty('%'), gpuTemp: empty('°C'), gpuHotspot: empty('°C'), gpuClock: empty('MHz'), gpuPower: empty('W'),
     cpuUsage: empty('%'), cpuTemp: empty('°C'), cpuClock: empty('MHz'), cpuPower: empty('W'),
     ramUsed: empty('GB'), ramPercent: empty('%'), vramUsed: empty('GB'), vramPercent: empty('%'),
@@ -484,7 +487,7 @@ function packetFor(state: DashboardState): DashboardPacket {
       game: null, foreground: null, capacities: { ramGb: null, vramGb: null, storageGb: null }, metrics: blankMetrics(), alerts: [],
     };
   }
-  return { ...latest, networkQuality: state.preferences.networkProbeEnabled && state.preferences.layoutPreset === 'gaming' ? networkProbes.get(state.preferences.networkProbeTarget)?.snapshot() : undefined, alerts: latest.connected ? alerts(latest.metrics, state.preferences) : [] };
+  return { ...latest, peripherals: peripheralProvider?.snapshot(), networkQuality: state.preferences.networkProbeEnabled && state.preferences.layoutPreset === 'gaming' ? networkProbes.get(state.preferences.networkProbeTarget)?.snapshot() : undefined, alerts: latest.connected ? alerts(latest.metrics, state.preferences) : [] };
 }
 
 function readSensors() {
@@ -552,6 +555,7 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
 
 async function poll(ctx: ExtensionContext) {
   if (polling) return;
+  peripheralProvider?.update(ctx.devices.some(device => device.active && states.get(device.id)?.layout.some(card => !card.hidden && card.metric === 'peripherals')));
   const targets = new Set<string>();
   for (const device of ctx.devices) {
     const p = states.get(device.id)?.preferences;
@@ -761,6 +765,7 @@ async function pollMedia(ctx: ExtensionContext) {
 defineExtension({
   start(ctx) {
     startMirrorServer(ctx);
+    peripheralProvider = new PeripheralProvider(message => ctx.log.warn(message),{get:()=>ctx.kv.get('battery-history-v1'),set:value=>ctx.kv.set('battery-history-v1',value)});
     nativeFps = new PresentMonProvider({
       info: message => ctx.log.info(message),
       warn: message => ctx.log.warn(message),
@@ -838,7 +843,7 @@ defineExtension({
     mediaTimer = setInterval(() => void pollMedia(ctx), 750);
     ctx.log.info(`BrutalDash bridge extension started with ${POLL_INTERVAL_MS}ms telemetry polling`);
   },
-  stop() {
+  async stop() {
     for (const probe of networkProbes.values()) probe.stop();
     networkProbes.clear();
     clearInterval(timer);
@@ -849,6 +854,9 @@ defineExtension({
     nativeFps = null;
     nativeCpu?.stop();
     nativeCpu = null;
+    peripheralProvider?.stop();
+    await peripheralProvider?.flush();
+    peripheralProvider = null;
     for (const socket of mirrorClients) socket.close(1001, 'BrutalDash extension stopping');
     mirrorClients.clear();
     void mirrorServer?.shutdown();

@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import {BatteryEstimator} from '../../extension/battery-estimator.ts';
+import {batteryEstimate} from '../../src/peripherals.ts';
+const id='a'.repeat(24),start=Date.now();
+const d=(p,t,charging=false)=>({id,name:'Test',kind:'mouse',source:'test',percent:p,estimatePercent:null,charging,online:true,state:'',sampledAt:start+t*60000});
+const feed=(e,p,t,c=false,extra={})=>e.update({devices:[{...d(p,t,c),...extra}],status:'ready',receivedAt:start+t*60000},start+t*60000).devices[0];
+const e=new BatteryEstimator();let result;
+for(let t=0;t<=20;t+=.5)result=feed(e,80-Math.floor(t/5),t);
+assert.equal(result.etaKind,'empty');assert.equal(result.etaMinutes,380);assert.equal(batteryEstimate(result,start+20*60000),'~6h 20m remaining');
+assert.equal(feed(e,76,20.5,true).etaMinutes,null,'switch to charging cannot reuse drain');
+for(let t=21;t<=40;t+=.5)result=feed(e,76+Math.floor((t-20.5)/5),t,true);
+assert.equal(result.etaKind,'full');assert.ok(result.etaMinutes>=90&&result.etaMinutes<=115);
+const saved=JSON.parse(JSON.stringify(e.export(start+40*60000))),reload=new BatteryEstimator();reload.load(saved,start+40*60000);
+assert.equal(feed(reload,70,45).etaKind,'empty','fresh reading immediately reuses saved drain rate');
+for(let t=45.5;t<=47;t+=.5)result=feed(reload,70,t);assert.equal(result.etaKind,'empty','learned rate survives restart');
+assert.equal(feed(reload,70,47.5,false,{online:false}).etaMinutes,null);
+const beforeGap=JSON.stringify(reload.export(start+100*60000));
+assert.equal(feed(reload,60,100).etaKind,'empty','reconnect immediately reuses saved rate');
+assert.equal(JSON.stringify(reload.export(start+100*60000)),beforeGap,'offline time excluded from learning');
+assert.equal(feed(reload,60,101,false,{percent:null,estimatePercent:55}).etaMinutes,null,'coarse reading excluded');
+assert.equal(feed(reload,60,102,null).etaMinutes,null,'unknown charging excluded');
+const slow=new BatteryEstimator();for(let t=0;t<=30;t+=.5)result=feed(slow,80,t);assert.equal(result.etaMinutes,null,'flat cannot invent rate');
+assert.equal(feed(e,100,41,true).etaMinutes,null,'jump resets');
+const stale=d(76,20);assert.equal(e.update({devices:[stale],status:'ready',receivedAt:start+40*60000},start+40*60000).devices[0].etaMinutes,null);
+const bad=new BatteryEstimator();bad.load({[id]:{updated:start,drain:{rate:0,minutes:200,points:50,changes:10}}},start);assert.equal(bad.export(start)[id].drain,undefined);
+console.log('Battery estimates: drain, charge, saved history, mode changes, gaps, stale/coarse/unknown readings, flat battery and invalid history passed.');
+
+const nearFull=new BatteryEstimator();nearFull.load({[id]:{updated:start,charge:{rate:.32,minutes:53,points:49,changes:35}}},start);
+for(let t=0;t<=2;t+=.5)result=feed(nearFull,98,t,true);
+assert.equal(result.etaMinutes,7,'6.25 minutes must not round down to a frozen five-minute bucket');
+for(let t=2.5;t<=6.5;t+=.5)result=feed(nearFull,98,t,true);
+assert.equal(result.etaMinutes,null,'pace that misses two expected percentage steps is withdrawn');
+assert.equal(result.etaStatus,'adjusting');assert.equal(batteryEstimate(result,start+6.5*60000),'Updating…');
+result=feed(nearFull,99,7,true);assert.equal(result.etaKind,'full','a real charging step restores an updated prediction');assert.equal(result.etaStatus,undefined);
+assert.equal(feed(nearFull,100,7.5,true).etaMinutes,null,'full has no remaining countdown');
+console.log('Short ETA precision, delayed charging, recovery and full-charge checks passed.');
+
+for(const charging of [false,true]){
+ const early=new BatteryEstimator();
+ assert.equal(feed(early,50,0,charging).etaMinutes,null);
+ feed(early,50,.5,charging);
+ assert.equal(feed(early,charging?51:49,1,charging).etaMinutes,null,'one change is insufficient');
+ feed(early,charging?51:49,1.5,charging);
+ const two=feed(early,charging?52:48,2,charging);
+ assert.equal(two.etaKind,charging?'full':'empty','two measured changes expose approximate ETA before ten minutes');
+ assert.equal(two.etaMinutes,48);
+ assert.match(batteryEstimate(two,start+120000),/^~/);
+ const rates=JSON.stringify(early.export(start+120000));
+ for(let i=0;i<20;i++)feed(early,charging?52:48,2,charging);
+ assert.equal(JSON.stringify(early.export(start+120000)),rates,'repeated heartbeat cannot manufacture learning');
+ assert.equal(feed(early,charging?52:48,2.5,!charging).etaMinutes,null,'opposite mode needs its own learning');
+ assert.equal(feed(early,charging?52:48,3,charging).etaKind,charging?'full':'empty','returning to a learned mode needs no warmup');
+}
+console.log('Early approximate estimates, immediate learned-mode reuse and duplicate-read guards passed.');

@@ -4,3 +4,4 @@
 *.jpeg binary
 *.exe binary
 *.ttf binary
+extension/vendor/battery-host/** -text

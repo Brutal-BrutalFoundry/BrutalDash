@@ -362,6 +362,11 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+/* Optically center the clock above the normal header's bottom spacing. */
+.dashboard:not(.is-media-open) .dashboard-clock {
+  top: calc(50% - 8px);
+}
+
 .source-badge,
 .version-badge,
 .drag-handle {
@@ -2254,7 +2259,7 @@ select {
   margin-top: 5px;
   background: var(--accent);
   transform-origin: left;
-  animation: card-hold-fill 1.5s linear forwards;
+  animation: card-hold-fill 1s linear forwards;
 }
 @keyframes card-hold-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .dashboard.is-editing .editor-shell { backdrop-filter: none; background: var(--background); }

@@ -1,0 +1,30 @@
+BrutalDash device battery collector, development version 0.1.52.
+
+HaloBattery 1.11.0 providers and deduplication:
+https://github.com/HeyOkay/HaloBattery/tree/v1.11.0
+Copyright (c) 2026 Halo Battery contributors; MIT license included.
+Input source ZIP SHA-256:
+95d533f91d2c986bb90734bc51bf866e18aef6ad0a2029571df3448c4824d820
+The supplied providers are retained, excluding generated __pycache__ files.
+Tray UI, updater, diagnostics, autostart, and installer are not run or bundled.
+BlackShark protocol support remains part of the Razer provider.
+
+ASUS battery query is a separate implementation of status-report wire fields.
+Protocol reference: https://github.com/seerge/g-helper at
+f67703f68fd879626c9f6319aac9e80743a359e7, AsusKeyboard.cs / StrixScopeII.cs.
+No G-Helper application implementation or restricted private-core code is bundled.
+Locally tested: Scope II 96 through ROG OMNI. Direct and RX variants are
+protocol support only, not locally hardware-verified.
+
+Runtime: Python 3.14.7 Windows x64 embeddable distribution, PSF license in
+runtime/LICENSE.txt. python314.zip is renamed python314.pak and the isolated
+python314._pth includes it and the collector directory. No system installation.
+https://www.python.org/ftp/python/3.14.7/python-3.14.7-embed-amd64.zip
+Archive SHA-256: d297e5ff019966817ad8502465176139f2d3d840fa4ed84b13bed399a6ab1f15
+
+HID binding: hidapi 0.15.0 cp314 win_amd64 wheel. Included license choices
+and notices are in hidapi-licenses; redistribution uses the BSD license option.
+
+Polling: 30 seconds, in a persistent hidden helper. Parent closure kills the
+entire helper process tree. No driver installation or vendor software needed.
+Device support remains subject to the upstream model and connection limits.

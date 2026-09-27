@@ -1,3 +1,4 @@
+import {DeviceCardSettings,deviceCardOptions} from '../src/DeviceCardSettings';
 import {ChoiceSelect} from '../src/ChoiceSelect';
 import { settings, type SettingsContext } from '@bridgething/client/settings';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -40,8 +41,10 @@ const presets: { value: LayoutPreset; label: string }[] = [
   { value: 'four', label: 'Four Big' }, { value: 'rows', label: 'System Rows' },
   { value: 'list', label: 'Readable List' }, { value: 'gaming', label: 'Gaming Focus' },
   { value: 'six', label: 'Balanced Six' }, { value: 'paged', label: 'Two at a Time' },
+  {value:'devices',label:'Devices'},
 ];
 const metricLabels: Record<MetricKey, string> = {
+  peripherals: 'Device batteries',
   gpuUsage: 'GPU usage', gpuTemp: 'GPU temperature', gpuHotspot: 'GPU hotspot', gpuClock: 'GPU clock', gpuPower: 'GPU power',
   cpuUsage: 'CPU usage', cpuTemp: 'CPU temperature', cpuClock: 'CPU clock', cpuPower: 'CPU package power',
   ramUsed: 'RAM used / total', ramPercent: 'RAM usage', vramUsed: 'VRAM used / total', vramPercent: 'VRAM usage',
@@ -104,7 +107,8 @@ function parseState(value: string | null | undefined): DashboardState | null {
         y: clamp(Math.round(Number(item.y) || 0), 0, 11),
         w: clamp(Math.round(Number(item.w) || 2), 1, 6),
         h: clamp(Math.round(Number(item.h) || 1), 1, 4),
-        hidden: Boolean(item.hidden),
+        ...deviceCardOptions(item),
+      hidden: Boolean(item.hidden),
         page: clamp(Math.round(Number(item.page) || 0), 0, 2),
       } satisfies LayoutItem];
     });
@@ -313,7 +317,8 @@ function Settings() {
             <label className="field"><span>Width</span><input type="number" min="1" max="6" value={card.w} onChange={event => updateCard(card.id, { w: Number(event.target.value) })} /></label>
             <label className="field"><span>Height</span><input type="number" min="1" max="4" value={card.h} onChange={event => updateCard(card.id, { h: Number(event.target.value) })} /></label>
           </div>
-          <div className="details"><span>Secondary readings</span>{[0, 1, 2].map(detailIndex => <ChoiceSelect aria-label={`Secondary reading ${detailIndex + 1} for card ${index + 1}`} key={detailIndex} value={card.details[detailIndex] || ''} onChange={event => {
+          {card.metric === 'peripherals' && <DeviceCardSettings item={card} onChange={patch=>updateCard(card.id,patch)}/>}
+          <div className="details" hidden={card.metric === 'peripherals'}><span>Secondary readings</span>{[0, 1, 2].map(detailIndex => <ChoiceSelect aria-label={`Secondary reading ${detailIndex + 1} for card ${index + 1}`} key={detailIndex} value={card.details[detailIndex] || ''} onChange={event => {
             const details = [...card.details];
             if (event.target.value) details[detailIndex] = event.target.value as MetricKey; else details.splice(detailIndex, 1);
             updateCard(card.id, { details: [...new Set(details)].slice(0, 3) });

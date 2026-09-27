@@ -1,3 +1,5 @@
+import {DeviceCardSettings,deviceCardOptions} from './DeviceCardSettings';
+import { PeripheralCard } from './PeripheralCard';
 import {ChoiceSelect} from './ChoiceSelect';
 import { BridgethingClient } from "@bridgething/client";
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
@@ -54,10 +56,11 @@ type MediaSnapshot = {
 type MetricMeta = {
   label: string;
   shortLabel: string;
-  group: "cpu" | "gpu" | "ram" | "vram" | "storage" | "network" | "fps";
+  group: "devices" | "cpu" | "gpu" | "ram" | "vram" | "storage" | "network" | "fps";
 };
 
 const metricMeta: Record<MetricKey, MetricMeta> = {
+  peripherals: {label:"Device batteries",shortLabel:"DEVICES",group:"devices"},
   gpuUsage: { label: "GPU Usage", shortLabel: "GPU", group: "gpu" },
   gpuTemp: { label: "GPU Temperature", shortLabel: "GPU TEMP", group: "gpu" },
   gpuHotspot: { label: "GPU Hotspot", shortLabel: "HOTSPOT", group: "gpu" },
@@ -127,6 +130,7 @@ const presetLabels: Record<LayoutPreset, { letter: string; name: string }> = {
   gaming: { letter: "D", name: "Gaming Focus" },
   six: { letter: "E", name: "Balanced Six" },
   paged: { letter: "F", name: "Two at a Time" },
+  devices: {letter:"G", name:"Devices"},
 };
 
 const layoutPresets = Object.keys(presetLabels) as LayoutPreset[];
@@ -261,6 +265,7 @@ function normalizeImportedLayout(value: unknown): LayoutItem[] | null {
       y: Math.min(11, Math.max(0, Math.round(Number(item.y) || 0))),
       w: Math.min(6, Math.max(1, Math.round(Number(item.w) || 2))),
       h: Math.min(4, Math.max(1, Math.round(Number(item.h) || 1))),
+      ...deviceCardOptions(item),
       hidden: Boolean(item.hidden),
       page: Math.min(2, Math.max(0, Math.round(Number(item.page) || 0))),
     };
@@ -322,7 +327,7 @@ function App() {
   const clockShowingRef = useRef(false);
   const brightnessController = useMemo(() => new ClockBrightnessController(client.hardware), [client]);
   const pointerSwapRef = useRef<{ id: string; pointerId: number; x: number; y: number; moved: boolean } | null>(null);
-  const longPressRef = useRef<{ timer: number; pointerId: number; x: number; y: number } | null>(null);
+  const longPressRef = useRef<{ timer: number; cueTimer:number; pointerId: number; x: number; y: number } | null>(null);
 
   useEffect(() => mirrorMode ? undefined : installDeviceInputForwarder(client), [client, mirrorMode]);
 
@@ -415,7 +420,7 @@ function App() {
       if (packetFlushTimerRef.current !== null) window.clearTimeout(packetFlushTimerRef.current);
       packetFlushTimerRef.current = null;
       pendingPacketRef.current = null;
-      if (longPressRef.current) window.clearTimeout(longPressRef.current.timer);
+      if (longPressRef.current) {window.clearTimeout(longPressRef.current.timer);window.clearTimeout(longPressRef.current.cueTimer);}
     };
   }, [client]);
 
@@ -659,12 +664,12 @@ function App() {
     if (item) updateItem(id, { w: item.w + dw, h: item.h + dh });
   };
 
-  const swapCards = (sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return;
+  const swapCards = (sourceId: string, targetId: string, patch?: Partial<LayoutItem>) => {
+    if (sourceId === targetId && !patch) return;
     const editing = editorOpenRef.current;
     const current = editing ? draftLayout : layoutRef.current;
     const nextPreferences = clonePreferences(editing ? draftPreferences : preferencesRef.current);
-    const next = swapLayoutSlots(current, sourceId, targetId);
+    const next = patch ? current.map(item=>item.id===sourceId?{...item,...patch}:item) : swapLayoutSlots(current, sourceId, targetId);
     setDraftLayout(next);
     setLayout(next);
     layoutRef.current = next;
@@ -709,6 +714,7 @@ function App() {
     const pending = longPressRef.current;
     if (!pending || (pointerId !== undefined && pending.pointerId !== pointerId)) return;
     window.clearTimeout(pending.timer);
+    window.clearTimeout(pending.cueTimer);
     longPressRef.current = null;
     setHoldingCardId(null);
   };
@@ -738,7 +744,7 @@ function App() {
       setDraggedId(id);
       return;
     }
-    setHoldingCardId(id);
+    const cueTimer=window.setTimeout(()=>{if(longPressRef.current?.pointerId===pointerId)setHoldingCardId(id);},500);
     const timer = window.setTimeout(() => {
       if (longPressRef.current?.pointerId !== pointerId) return;
       longPressRef.current = null;
@@ -747,7 +753,7 @@ function App() {
       pointerSwapRef.current = { id, pointerId, x, y, moved: false };
       setDraggedId(id);
     }, 1500);
-    longPressRef.current = { timer, pointerId, x, y };
+    longPressRef.current = { timer, cueTimer, pointerId, x, y };
   };
 
   const moveCardGesture = (event: ReactPointerEvent<HTMLElement>) => {
@@ -1051,6 +1057,7 @@ function App() {
             dropTarget={dragTargetId === item.id}
             onDragStart={() => setDraggedId(item.id)}
             onDrop={() => dropOnCard(item.id)}
+            onDeviceChange={patch=>swapCards(item.id,item.id,patch)}
             onPointerDown={(event) => startCardGesture(item.id, event)}
           />
         ))}
@@ -1144,7 +1151,8 @@ function App() {
                         </div>
                         {expandedCardId === item.id && (
                           <div className="card-control-body">
-                            <div className="detail-selects">
+                            {item.metric === 'peripherals' && <DeviceCardSettings item={item} onChange={patch=>updateItem(item.id,patch)}/>}
+                            <div className="detail-selects" hidden={item.metric === 'peripherals'}>
                               {[0, 1, 2].map((detailIndex) => (
                                 <ChoiceSelect key={detailIndex} aria-label={`Detail ${detailIndex + 1} for ${item.id}`} value={item.details[detailIndex] || ""} onChange={(event) => changeDetail(item.id, detailIndex, event.target.value as MetricKey | "")}>
                                   <option value="">No detail</option>
@@ -1386,6 +1394,7 @@ function AnalogClock({ time }: { time: Date }) {
 }
 
 type MetricCardProps = {
+  onDeviceChange: (patch:Partial<LayoutItem>)=>void;
   item: LayoutItem;
   packet: DashboardPacket;
   compact: boolean;
@@ -1400,7 +1409,8 @@ type MetricCardProps = {
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
 };
 
-function MetricCard({ item, packet, compact, editing, gaming, dragging, holding, dropTarget, onPointerDown }: MetricCardProps) {
+function MetricCard({ item, packet, compact, editing, gaming, dragging, holding, dropTarget, onPointerDown, onDeviceChange }: MetricCardProps) {
+  if (item.metric === "peripherals") return <PeripheralCard item={item} snapshot={packet.peripherals} dragging={dragging} holding={holding} dropTarget={dropTarget} onPointerDown={onPointerDown} onChange={onDeviceChange} />;
   const gamingGpu = gaming && item.metric === "gpuUsage" && item.details.includes("vramUsed");
   const meta = metricMeta[item.metric];
   const metric = packet.metrics[item.metric];

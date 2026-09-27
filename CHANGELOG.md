@@ -1,5 +1,19 @@
 # pc-dashboard-bridgething
 
+## 0.1.52 - Stable (2026-09-27)
+
+- Add a Devices layout with ring grid, device list, and single-device views, plus a reusable Device batteries card for existing layouts. Whole-card up/down swipes page through detected devices, with a current-page indicator.
+- Add visible Grid/List/Single controls and auto-saving hold-and-drag device ordering: half a second before feedback, then a one-second progress cue. Swiping cancels pickup.
+- Use the selected Halo card design: larger battery ring beside the reading and one centered status line. Short vertical swipes track the finger and snap between devices; taps and cancelled swipes retain the current device.
+- Recognize the Maxwell Xbox receiver's off identity and restore the headset automatically when it reconnects.
+- Show short battery ETAs in one-minute steps and withdraw charging estimates when progress no longer supports the learned pace.
+- Add solid/outline icons, percentage-based battery colors, optional charging pulse, and time estimates learned separately for charging and use. Save learned rates across restarts and reuse them on a fresh reading. Show an approximate ETA after two measured percentage changes without the fixed ten-minute wait; retain Learning/Updating beside the battery state until an ETA is available. Hardware polling is unchanged.
+- Identify the paired Scope II 96 through the OMNI receiver rather than using the receiver name.
+- Move the normal dashboard clock up eight pixels.
+- Bundle all HaloBattery 1.11.0 battery providers and a separate ASUS keyboard status reader. No Python, HaloBattery, or vendor app installation is required.
+- Keep battery polling in a persistent hidden helper, separate from main telemetry. Bound retries and stale readings, clean up the process tree on shutdown, and distinguish estimated, unknown, sleeping, and charging readings.
+- Local hardware checks returned readings for Audeze Maxwell, Logitech G502 X PLUS, and ASUS Scope II 96 via OMNI. Other provider/model coverage follows upstream and is not a claim of local hardware testing.
+
 ## 0.1.51 - Stable (2026-09-27)
 
 - Promote the user-accepted .51 build to stable, including the changes tested in .48 through .50 below.

@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { zipSync } from 'fflate';
+import {verifyBatteryPayload} from './battery-payload.ts';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -43,6 +44,7 @@ function walk(dir: string): void {
   }
 }
 walk(distDir);
+verifyBatteryPayload(resolve(distDir,'extension/vendor/battery-host'));
 
 // A successful Vite build can leave an unresolved CSS URL behind. Validate
 // local assets too, so a missing font cannot silently ship as system fallback.
