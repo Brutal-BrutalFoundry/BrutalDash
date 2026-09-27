@@ -35,7 +35,7 @@ class BatteryDataTests(unittest.TestCase):
 
     def test_full_provider_coverage(self):
         self.assertEqual({p.name for p in PROVIDERS}, {'razer','audeze','wlmouse','mchose','hyperx',
-            'logitech','steelseries','xinput','playstation','bluetooth','asus'})
+            'logitech','steelseries','xinput','playstation','bluetooth','asus','headsets'})
 
     def test_exact_zero_and_invalid(self):
         self.assertEqual(normalize(DeviceStatus('a','Empty',0),1)['percent'],0)

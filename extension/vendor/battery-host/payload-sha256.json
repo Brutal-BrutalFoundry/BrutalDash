@@ -1,7 +1,7 @@
 {
   "BrutalDashBatteryHost.cs": "fa5f7e75440ecc49c243347caef516cf476f0520c1048ad88da2e21d85930ae2",
   "BrutalDashBatteryHost.exe": "f3bb9a808a80d22fc6c595894a6ea649d3de19bc69621df474e15751b662fcae",
-  "collector.py": "0ef2f0eea10e9c6e4ce10726494a58e38a86e07f01d2698fa08107998630943c",
+  "collector.py": "7717eb3529741465af863355909bff6fd206fa239e226b99d2c72c7b48ac81ba",
   "dedupe.py": "572cdcbbd60529d875134a5526ebc0991da5dbae7007de22c9114fca08a4c24b",
   "hidapi-licenses/LICENSE-bsd.txt": "dc15d6ced1b80b69c7a2cdacd64e82c8e3d122b01085f6d13513d9a6bd3a8ef1",
   "hidapi-licenses/LICENSE-gpl3.txt": "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
@@ -15,8 +15,8 @@
   "providers/blackshark.py": "3669507e73b3406812d05d31ba6ae9a4286d912d612566da0a4157f32cdd187a",
   "providers/bluetooth.py": "e583d3b358c7c64ba86bfd5268857c26c663b29e392b5d467c8d472348412a0b",
   "providers/hidlist.py": "bf83ddd5173a724d56b556302495b914140a34ffacc601b972329ff35db2256a",
-  "providers/hyperx.py": "17d7f67305973865abf9364767d2b0905dbd1d79d8f36a2150f922dbff27cf64",
-  "providers/logitech.py": "bd231bd7f2cb916bb679355c006163d5f3750e34c3758222b4618d7635829ec4",
+  "providers/hyperx.py": "b9dc10a24c5d798438b06b2299e6a2e1ea43f0e430ce2ae85778c18841ac54b1",
+  "providers/logitech.py": "55a506d78ec90539dd4751252e2f9d239ad81af131efe8d466b9e67d3e338987",
   "providers/mchose.py": "3d43c27699d9b11730ac48a0727a624cd271fa4eaa2a69e9374ffafcee18ae3c",
   "providers/playstation.py": "8a12343da08cf9df029d90cdfc11d8e94401648f2cbff1414a3961bc01e6cc10",
   "providers/razer.py": "e0e91a3659ff057f2910fb79afb261ca188673e9e4add076b5b9615e9c701bff",
@@ -62,5 +62,7 @@
   "runtime/vcruntime140_1.dll": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e",
   "runtime/vcruntime140.dll": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7",
   "runtime/winsound.pyd": "6a27340660de89d5da59445a77ac6b08d471e373304ce7294c198238f09f2dc2",
-  "SOURCE.txt": "dff968c26f25323a11cffc497b2205b384a37b9118c7cf57ef2d36bfd677d522"
+  "SOURCE.txt": "018463a578d243bb9d15b4fda9602f2d5728d07f62c9ccdf14313f6c9b4915a2",
+  "providers/hyperx_cloud3.py": "4ffacfbc584e95d7f9152614202623f7d4890524f417565e90d5d2c87627d82d",
+  "providers/headsets.py": "e1e6b50e65fbd08813278500cf71302132ed452dbe2464c1b91b03b735a90574"
 }

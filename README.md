@@ -10,7 +10,7 @@ It is built for readability at a glance: near-live CPU, GPU, RAM, VRAM, disk, ne
 
 **New here?** Start with [INSTALLATION.md](INSTALLATION.md). For the full capability list, see [FEATURES.md](FEATURES.md).
 
-**Current stable release: [v0.1.52](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.52).**
+**Current stable release: [v0.1.53](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.53).**
 
 ## Highlights
 
@@ -52,10 +52,6 @@ npm run share
 ```
 
 `npm run share` creates an installable BridgeThing ZIP in the project root. The app is intentionally not published to npm.
-
-## Validation
-
-v0.1.52 adds wireless device batteries. Packaged UI tests, provider and estimator checks, physical-device touch and idle tests, and package integrity checks passed. See [release validation](docs/validation-0.1.52.md) for the distinction between automated checks, physical-device testing, and hardware coverage.
 
 ## Third-party software
 

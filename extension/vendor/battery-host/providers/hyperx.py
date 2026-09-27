@@ -28,6 +28,7 @@ except ImportError:              # pragma: no cover
 
 from . import hidlist
 from .base import DeviceStatus, Provider, hexdump, log
+from .hyperx_cloud3 import poll_cloud3
 
 HYPERX_VID = 0x03F0
 USAGE_PAGE = 0xFF90
@@ -121,7 +122,7 @@ class HyperXProvider(Provider):
         except Exception as e:  # pragma: no cover
             log.warning("hid.enumerate(hyperx): %s", e)
             return []
-        out = []
+        out = poll_cloud3(infos, self._diag)
         seen = set()
         for pid in PIDS:
             mine = [d for d in infos if d["product_id"] == pid and d["path"] not in seen]

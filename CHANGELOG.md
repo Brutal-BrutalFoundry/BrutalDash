@@ -1,5 +1,12 @@
 # pc-dashboard-bridgething
 
+## 0.1.53 - Stable (2026-09-27)
+
+- Added HyperX Cloud III Wireless battery and charging status.
+- Expanded Logitech receiver support, including newer C54F interfaces and direct Bluetooth HID++ connections.
+- Added 25 Corsair and SteelSeries Arctis headset identifiers.
+- Improved handling of approximate battery readings to prevent misleading full-charge status and time estimates.
+
 ## 0.1.52 - Stable (2026-09-27)
 
 - Add a Devices layout with ring grid, device list, and single-device views, plus a reusable Device batteries card for existing layouts. Whole-card up/down swipes page through detected devices, with a current-page indicator.

@@ -51,7 +51,7 @@ export function batteryEstimate(device:PeripheralDevice,now:number) {
 export function batterySummary(device:PeripheralDevice,now:number,showEstimate=true) {
   const reading=peripheralReading(device,now);
   if(reading.level===null)return reading.status;
-  if(reading.level===100)return 'Fully charged';
+  if(device.percent===100)return 'Fully charged';
   const estimate=showEstimate?batteryEstimate(device,now).replace('remaining','left').replace('Time estimate unavailable','ETA unavailable'):'';
   const state=device.charging?'Charging':reading.level<=20?'Low battery':device.charging===false?'On battery':'Battery level';
   return estimate?`${state} · ${estimate}`:state;

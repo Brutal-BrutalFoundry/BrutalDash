@@ -1,4 +1,4 @@
-BrutalDash device battery collector, development version 0.1.52.
+BrutalDash device battery collector, version 0.1.53.
 
 HaloBattery 1.11.0 providers and deduplication:
 https://github.com/HeyOkay/HaloBattery/tree/v1.11.0
@@ -28,3 +28,15 @@ and notices are in hidapi-licenses; redistribution uses the BSD license option.
 Polling: 30 seconds, in a persistent hidden helper. Parent closure kills the
 entire helper process tree. No driver installation or vendor software needed.
 Device support remains subject to the upstream model and connection limits.
+
+Cloud III Wireless status reader added in 0.1.53. Protocol reference:
+https://github.com/LennardKittner/HyperHeadset/blob/57dfa2b32ab73097be016006bf6580933536637e/src/devices/cloud_iii_wireless.rs
+Only link, battery and charging queries are used. No configuration commands.
+Logitech selection also accepts the reported FF43:0301/0302 HID++ collections.
+Cloud III and C54F receiver support require remote hardware validation.
+
+Additional Corsair/Arctis battery wire references: Sapd/HeadsetControl
+25dadae5c5b834f94ee954513421def12c5d6305, corsair_void_rich.hpp,
+steelseries_arctis_1.hpp, steelseries_arctis_7_plus.hpp.
+Independent battery-only implementation; no upstream C++ application code bundled.
+Direct FF43:0202 HID++ connections now included. See DEVICE-BATTERY-SUPPORT.md.

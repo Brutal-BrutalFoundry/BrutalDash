@@ -15,13 +15,14 @@ from providers import (RazerProvider, AudezeProvider, WLmouseProvider, MchosePro
     HyperXProvider, LogitechProvider, SteelSeriesProvider, XInputProvider,
     PlayStationProvider, BluetoothProvider)
 from providers.asus import AsusProvider
+from providers.headsets import HeadsetProvider
 from dedupe import dedupe_controllers, drop_bluetooth_duplicates
 
 logging.disable(logging.CRITICAL)
 POLL_SECONDS = 30
 PROVIDERS = [RazerProvider, AudezeProvider, WLmouseProvider, MchoseProvider,
     HyperXProvider, LogitechProvider, SteelSeriesProvider, XInputProvider,
-    PlayStationProvider, BluetoothProvider, AsusProvider]
+    PlayStationProvider, BluetoothProvider, AsusProvider, HeadsetProvider]
 
 
 def normalize(status, sampled_at):

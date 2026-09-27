@@ -196,8 +196,14 @@ class LogitechProvider(Provider):
 
         groups: Dict[int, Dict[int, bytes]] = {}          # pid -> {usage: path}
         for d in infos:
-            if d.get("usage_page") == 0xFF00 and d.get("usage") in (1, 2):
-                groups.setdefault(d["product_id"], {})[d["usage"]] = d["path"]
+            # Newer receivers (including reported C54F) expose the HID++
+            # collections on FF43:0301/0302 instead of FF00:0001/0002.
+            channel = {(0xFF00, 1): 1, (0xFF00, 2): 2,
+                       (0xFF43, 0x0301): 1, (0xFF43, 0x0302): 2,
+                       (0xFF43, 0x0202): 2}.get(
+                           (d.get("usage_page"), d.get("usage")))
+            if channel:
+                groups.setdefault(d["product_id"], {})[channel] = d["path"]
 
         found: Dict[str, DeviceStatus] = {}
         for pid, paths in groups.items():
