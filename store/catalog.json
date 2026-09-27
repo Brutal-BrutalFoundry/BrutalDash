@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-09-22T23:16:41Z",
+  "updated_at": "2026-09-27T04:15:07Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -25,6 +25,26 @@
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.51",
+          "released_at": "2026-09-27T04:15:07Z",
+          "download": {
+            "url": "https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/download/v0.1.51/BrutalDash-0.1.51.zip",
+            "size": 40886282,
+            "sha256": "3ca6dec7917405e24eb9725b29cb7f92d94fc8b42f2071b6d430b8c33d6a0e95"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1:8894"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Stable: 1.5-second hold-and-drag card swaps with automatic per-layout persistence; clearer fonts and readings; combined GPU/VRAM and gaming network latency/loss; smoother customization/layout switching; media and dimming fixes; shared uploaded branding; verified-access PawnIO provisioning and AMD HWiNFO sensor fixes."
+        },
         {
           "version": "0.1.40",
           "released_at": "2026-09-22T23:16:41Z",
