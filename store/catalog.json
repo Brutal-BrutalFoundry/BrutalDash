@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-09-27T04:22:59.577Z",
+  "updated_at": "2026-09-27T11:04:28.778Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -25,6 +25,26 @@
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.52",
+          "released_at": "2026-09-27T11:04:10Z",
+          "download": {
+            "url": "https://brutal-brutalfoundry.github.io/BrutalDash/downloads/BrutalDash-0.1.52.zip",
+            "size": 53549749,
+            "sha256": "cc4a2b0e723ca9aed32e65e2b9142340baecfa65ae96a43597fc00761e07eb0d"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1:8894"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Device Battery page and reusable card with Grid/List/Single views, vertical swipes, saved device ordering, percentage colors, charging pulse and learned time estimates. Bundled HaloBattery providers plus ASUS keyboard detection. Dashboard clock moved up."
+        },
         {
           "version": "0.1.51",
           "released_at": "2026-09-27T04:15:07Z",
