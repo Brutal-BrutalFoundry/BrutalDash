@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-09-27T11:04:28.778Z",
+  "updated_at": "2026-09-27T17:48:49.077Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -25,6 +25,26 @@
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.53",
+          "released_at": "2026-09-27T17:48:17Z",
+          "download": {
+            "url": "https://brutal-brutalfoundry.github.io/BrutalDash/downloads/BrutalDash-0.1.53.zip",
+            "size": 53555667,
+            "sha256": "a5b5a46ecf8b3dc9d92da5769f490da0f0e1df2236134757f40ccfc411a7a370"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1:8894"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Expanded Device Battery support for HyperX Cloud III Wireless, newer Logitech receivers and Bluetooth HID++ connections, plus 25 Corsair and SteelSeries Arctis headset identifiers. Improved handling of approximate battery readings."
+        },
         {
           "version": "0.1.52",
           "released_at": "2026-09-27T11:04:10Z",
