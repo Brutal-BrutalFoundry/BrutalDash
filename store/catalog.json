@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-09-27T17:48:49.077Z",
+  "updated_at": "2026-09-30T03:50:16.442Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -16,15 +16,35 @@
       "author": "BrutalFoundry",
       "icon": "https://brutal-brutalfoundry.github.io/BrutalDash/assets/brutalfoundry-icon.jpg",
       "screenshots": [
-        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/01-main-dashboard.png",
-        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/02-media-drawer.png",
-        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/03-clock.png",
-        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/04-customize-layouts.png",
-        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/05-game-fps.png"
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/gaming-v0.1.60.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/six-card-v0.1.60.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/device-battery-v0.1.60.png",
+        "https://brutal-brutalfoundry.github.io/BrutalDash/screenshots/llm-monitor-v0.1.60.png"
       ],
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.60",
+          "released_at": "2026-09-30T03:49:43Z",
+          "download": {
+            "url": "https://brutal-brutalfoundry.github.io/BrutalDash/downloads/BrutalDash-0.1.60.zip",
+            "size": 53570947,
+            "sha256": "54f6ae9394d95f9cb7b41e2328003ab8c2072c669685787283ba85115c2ad42d"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1",
+              "write"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Added LLM Monitor, multi-GPU selection and total VRAM, hold-dial screenshots, and a fourth saved layout shortcut. Improved layout persistence and Device Battery connection updates. Added double-tap min/max reset and fixed Gaming FPS card sizing and disconnected LLM clock mode."
+        },
         {
           "version": "0.1.53",
           "released_at": "2026-09-27T17:48:17Z",
