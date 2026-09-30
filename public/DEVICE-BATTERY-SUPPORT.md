@@ -1,4 +1,4 @@
-# Device Battery compatibility — 0.1.53
+# Device Battery compatibility — 0.1.60
 
 This is protocol coverage, not a claim that every listed model has been tested on hardware. The ZIP includes its helper/runtime; no separate Python or vendor app is needed.
 
@@ -18,7 +18,7 @@ Locally observed hardware: Audeze Maxwell, ASUS ROG Strix Scope II 96 via OMNI, 
 
 ## Resource limits
 
-Hardware polling remains once per 30 seconds after the previous poll completes. The expanded headset protocols share one worker inside the existing hidden helper. No per-model processes, foreground polling or UI timers are added. Existing two-second heartbeat continues independently of hardware reads.
+HID status refreshes ten seconds after the previous poll completes; the heavier Bluetooth scan remains at thirty seconds. Windows HID interface changes trigger an earlier refresh with a five-second minimum cooldown. The expanded headset protocols share one worker inside the existing hidden helper. No per-model processes, foreground polling or UI timers are added. Existing two-second heartbeat continues independently of hardware reads.
 
 Absent vendors skip HID opens; unknown IDs/interfaces are never queried. Enumeration is cached until Windows' HID device list changes. The new headset reader sends one status query per match, drains at most 8 queued reports, accepts at most 5 reads with a 500 ms total response deadline, and caps matches at 64. At 64 simultaneous silent supported headsets the read budget is at most 32 seconds, excluding OS open/write delays. The existing 45-second stuck-provider watchdog bounds unexpected driver hangs by restarting the helper with backoff. The normal few-device case does not pay for absent models.
 

@@ -1,7 +1,7 @@
 {
   "BrutalDashBatteryHost.cs": "fa5f7e75440ecc49c243347caef516cf476f0520c1048ad88da2e21d85930ae2",
   "BrutalDashBatteryHost.exe": "f3bb9a808a80d22fc6c595894a6ea649d3de19bc69621df474e15751b662fcae",
-  "collector.py": "7717eb3529741465af863355909bff6fd206fa239e226b99d2c72c7b48ac81ba",
+  "collector.py": "b18ef7b7a2fc1510d9224f13574bfec3de9b1faa9c8427a619310f2e7cde0c7e",
   "dedupe.py": "572cdcbbd60529d875134a5526ebc0991da5dbae7007de22c9114fca08a4c24b",
   "hidapi-licenses/LICENSE-bsd.txt": "dc15d6ced1b80b69c7a2cdacd64e82c8e3d122b01085f6d13513d9a6bd3a8ef1",
   "hidapi-licenses/LICENSE-gpl3.txt": "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
@@ -62,7 +62,7 @@
   "runtime/vcruntime140_1.dll": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e",
   "runtime/vcruntime140.dll": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7",
   "runtime/winsound.pyd": "6a27340660de89d5da59445a77ac6b08d471e373304ce7294c198238f09f2dc2",
-  "SOURCE.txt": "018463a578d243bb9d15b4fda9602f2d5728d07f62c9ccdf14313f6c9b4915a2",
+  "SOURCE.txt": "8ce4c21663df6867370965f1fb4a0651ede55cafc99e4e8ab2c99ae824425935",
   "providers/hyperx_cloud3.py": "4ffacfbc584e95d7f9152614202623f7d4890524f417565e90d5d2c87627d82d",
   "providers/headsets.py": "e1e6b50e65fbd08813278500cf71302132ed452dbe2464c1b91b03b735a90574"
 }

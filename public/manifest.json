@@ -1,7 +1,7 @@
 {
   "id": "01a07455-935a-77ad-97a8-94f23a9f8522",
   "name": "BrutalDash",
-  "version": "0.1.53",
+  "version": "0.1.60",
   "description": "BRUTALDASH: live PC performance control for your Car Thing. TELEMETRY: CPU, GPU, RAM, VRAM, disk, network, FPS and frametime. CONTROL: automatic game detection, alerts, session min/max values, custom layouts and vivid themes. MEDIA: album artwork, track information, progress and PC playback controls. Native Windows telemetry works out of the box; optional HWiNFO unlocks expanded sensors and richer hardware detail. OFFLINE: a customizable digital or analog clock when BridgeThing disconnects.",
   "icon": "assets/brutalfoundry-icon.jpg",
   "settings": "settings.html",
@@ -77,7 +77,8 @@
           "gaming",
           "six",
           "paged",
-          "devices"
+          "devices",
+          "llm"
         ],
         "default": "four"
       }
@@ -118,6 +119,17 @@
     {
       "type": "string",
       "data": {
+        "key": "llmApiToken",
+        "label": "Local AI API token",
+        "pattern": null,
+        "minLength": null,
+        "maxLength": 512,
+        "default": null
+      }
+    },
+    {
+      "type": "string",
+      "data": {
         "key": "dashboardState",
         "label": "Dashboard state (managed by BrutalDash)",
         "pattern": null,
@@ -137,7 +149,8 @@
     "permissions": [
       "ffi",
       "run",
-      "net:127.0.0.1:8894"
+      "net:127.0.0.1",
+      "write"
     ],
     "api": 1
   }

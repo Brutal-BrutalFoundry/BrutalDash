@@ -6,12 +6,8 @@ export function isCustomizeKey(key: string, code: string, repeat: boolean) {
   return !repeat && (code === "KeyM" || key.toLowerCase() === "m");
 }
 
-export function isRangeResetKey(key: string, code: string, repeat: boolean) {
-  return !repeat && (code === "Digit4" || key === "4");
-}
-
 export function layoutSlotFromKey(key: string, code: string): number | null {
-  const match = /^(?:Digit)?([1-3])$/.exec(code || key);
+  const match = /^(?:Digit)?([1-4])$/.exec(code || key);
   return match ? Number(match[1]) - 1 : null;
 }
 

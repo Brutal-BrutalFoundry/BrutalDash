@@ -8,6 +8,21 @@ export type NvidiaGpuMetrics = {
   vramTotalGb: number | null;
 };
 
+export type NvidiaGpuSnapshot = {
+  id: string;
+  index: number;
+  displayActive: boolean | null;
+  metrics: NvidiaGpuMetrics;
+};
+
+export function selectNvidiaGpu(candidates: NvidiaGpuSnapshot[], selection = 'auto') {
+  if (selection !== 'auto') {
+    const selected = candidates.find(candidate => candidate.id === selection);
+    if (selected) return selected.metrics;
+  }
+  return candidates.find(candidate => candidate.displayActive)?.metrics || candidates[0]?.metrics || null;
+}
+
 type NvmlSymbols = {
   nvmlInit_v2(): number;
   nvmlDeviceGetCount_v2(count: Uint8Array): number;
@@ -18,6 +33,7 @@ type NvmlSymbols = {
   nvmlDeviceGetClockInfo(handle: unknown, clock: number, value: Uint8Array): number;
   nvmlDeviceGetPowerUsage(handle: unknown, power: Uint8Array): number;
   nvmlDeviceGetMemoryInfo(handle: unknown, memory: Uint8Array): number;
+  nvmlDeviceGetDisplayActive(handle: unknown, active: Uint8Array): number;
 };
 
 type Nvml = { symbols: NvmlSymbols; close(): void };
@@ -55,6 +71,7 @@ function api(): Nvml | null {
       nvmlDeviceGetClockInfo: { parameters: ['pointer', 'u32', 'buffer'], result: 'u32' },
       nvmlDeviceGetPowerUsage: { parameters: ['pointer', 'buffer'], result: 'u32' },
       nvmlDeviceGetMemoryInfo: { parameters: ['pointer', 'buffer'], result: 'u32' },
+      nvmlDeviceGetDisplayActive: { parameters: ['pointer', 'buffer'], result: 'u32' },
     });
   } catch {
     nvml = null;
@@ -105,28 +122,35 @@ function readDevice(api: Nvml, handle: unknown): NvidiaGpuMetrics | null {
  * Direct, read-only NVIDIA driver provider. It replaces per-poll nvidia-smi
  * process launches, but remains optional: non-NVIDIA systems simply return null.
  */
-export function readNvidiaGpuMetrics(): NvidiaGpuMetrics | null {
+export function readNvidiaGpus(): NvidiaGpuSnapshot[] {
   try {
     const deno = runtime();
     const driver = api();
-    if (!deno || !driver) return null;
+    if (!deno || !driver) return [];
     if (!initialized) {
       const status = driver.symbols.nvmlInit_v2();
-      if (status !== NVML_SUCCESS && status !== NVML_ERROR_ALREADY_INITIALIZED) return null;
+      if (status !== NVML_SUCCESS && status !== NVML_ERROR_ALREADY_INITIALIZED) return [];
       initialized = true;
     }
     const countBuffer = new Uint8Array(4);
-    if (driver.symbols.nvmlDeviceGetCount_v2(countBuffer) !== NVML_SUCCESS) return null;
+    if (driver.symbols.nvmlDeviceGetCount_v2(countBuffer) !== NVML_SUCCESS) return [];
     const count = u32(countBuffer);
-    let selected: NvidiaGpuMetrics | null = null;
+    const candidates: NvidiaGpuSnapshot[] = [];
     for (let index = 0; index < count; index += 1) {
       const handle = openHandle(deno, driver, index);
       if (!handle) continue;
       const metrics = readDevice(driver, handle);
-      if (metrics && (selected?.usagePercent ?? -1) < (metrics.usagePercent ?? -1)) selected = metrics;
+      if (!metrics) continue;
+      const displayActive = optionalU32(output => driver.symbols.nvmlDeviceGetDisplayActive(handle, output));
+      candidates.push({id: `nvidia:${index}`, index, metrics, displayActive: displayActive === null ? null : displayActive === 1});
     }
-    return selected;
+    return candidates;
   } catch {
-    return null;
+    return [];
   }
+}
+
+/** Select one stable adapter for ordinary cards; the LLM layout consumes all. */
+export function readNvidiaGpuMetrics(selection = 'auto'): NvidiaGpuMetrics | null {
+  return selectNvidiaGpu(readNvidiaGpus(), selection);
 }

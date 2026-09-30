@@ -7,6 +7,21 @@ export type HwInfoSensor = {
   valueNow: number;
 };
 
+function sensorParent(sensor: HwInfoSensor) {
+  return (sensor.parentNameDefault || sensor.parentNameCustom || '').trim();
+}
+
+export function sensorsForGpu(sensors: HwInfoSensor[], preferredName?: string | null) {
+  const candidates = sensors.filter(sensor => /(?:dGPU|GPU) \[#\d+\]|NVIDIA|AMD Radeon|Intel Arc/i.test(sensorParent(sensor)));
+  if (!candidates.length) return [];
+  if (preferredName) {
+    const exact = candidates.filter(sensor => sensorParent(sensor).toLowerCase().includes(preferredName.toLowerCase()));
+    if (exact.length) return exact;
+  }
+  const firstParent = sensorParent(candidates[0]);
+  return candidates.filter(sensor => sensorParent(sensor) === firstParent);
+}
+
 type Kernel32Symbols = {
   OpenFileMappingW(access: number, inherit: number, name: Uint8Array): unknown;
   MapViewOfFile(mapping: unknown, access: number, offsetHigh: number, offsetLow: number, bytes: number): unknown;

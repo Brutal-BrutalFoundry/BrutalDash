@@ -1,3 +1,4 @@
+import {captureDashboard, installScreenshotHold, sendScreenshot} from './screenshot';
 import {DeviceCardSettings,deviceCardOptions} from './DeviceCardSettings';
 import { PeripheralCard } from './PeripheralCard';
 import {ChoiceSelect} from './ChoiceSelect';
@@ -16,7 +17,6 @@ import { installDeviceInputForwarder, isRecordingMirror, recordingClient } from 
 import {
   isCustomizeKey,
   isMediaToggleKey,
-  isRangeResetKey,
   layoutSlotFromKey,
   playbackProgress,
   unavailableMetricMessage,
@@ -131,6 +131,7 @@ const presetLabels: Record<LayoutPreset, { letter: string; name: string }> = {
   six: { letter: "E", name: "Balanced Six" },
   paged: { letter: "F", name: "Two at a Time" },
   devices: {letter:"G", name:"Devices"},
+  llm: {letter:"H", name:"LLM Monitor"},
 };
 
 const layoutPresets = Object.keys(presetLabels) as LayoutPreset[];
@@ -154,6 +155,8 @@ const previewPacket: DashboardPacket = {
   telemetryMessage: "Starting BrutalDash telemetry…",
   cpuName: "Waiting for PC telemetry",
   gpuName: "DeskThing preview",
+  gpus: [],
+  llm: null,
   game: null,
   foreground: null,
   capacities: { ramGb: null, vramGb: null, storageGb: null },
@@ -178,6 +181,32 @@ function formatMetric(value: number | null, unit: string, compact = false) {
 function formatCapacity(value: number) {
   const rounded = Math.round(value);
   return Math.abs(value - rounded) < 0.6 ? String(rounded) : value.toFixed(1);
+}
+
+function shortCpuName(name: string) {
+  const normalized = name.replace(/[®™]/g, "").replace(/\s+/g, " ").trim();
+  const model = normalized.match(/\b(?:i[3579]-)?(\d{4,5}[A-Z]{0,4})\b/i);
+  return model?.[1]?.toUpperCase() || normalized
+    .replace(/\b(?:Intel|AMD|Core|Ryzen|Processor|CPU)\b/gi, "")
+    .replace(/[()]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function shortGpuName(name: string) {
+  return name
+    .replace(/\bNVIDIA\s+GeForce\s+/i, "")
+    .replace(/\bAMD\s+Radeon\s+/i, "")
+    .replace(/\bIntel\s+Arc\s+/i, "Arc ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hardwareSubtitle(packet: DashboardPacket) {
+  const gpuNames = (packet.gpus || []).map(gpu => shortGpuName(gpu.name));
+  const uniqueGpuNames = [...new Set(gpuNames.filter(Boolean))];
+  const gpuLabel = uniqueGpuNames.length ? uniqueGpuNames.join(" + ") : shortGpuName(packet.gpuName);
+  return `${shortCpuName(packet.cpuName)} · ${gpuLabel}`;
 }
 
 function formatPrimary(metric: MetricKey, packet: DashboardPacket, compact: boolean) {
@@ -223,7 +252,8 @@ function clonePreferences(preferences: DashboardPreferences): DashboardPreferenc
   return {
     ...defaultPreferences,
     ...preferences,
-    displayName: displayName(preferences.displayName),
+    screenshotFolder: typeof preferences.screenshotFolder === 'string' ? preferences.screenshotFolder.trim().slice(0, 1000) : '',
+      displayName: displayName(preferences.displayName),
     clockLogo: clockLogo(preferences.clockLogo),
     enabledMetrics: [...(preferences.enabledMetrics || defaultPreferences.enabledMetrics)],
     gameInclude: [...(preferences.gameInclude || [])],
@@ -294,6 +324,7 @@ function App() {
   const [holdingCardId, setHoldingCardId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [notice, setNotice] = useState("");
+  const screenshotRequest = useRef<{id:string;timer:number}|null>(null);
   const [editorClosePromptOpen, setEditorClosePromptOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [lastPacketReceivedAt, setLastPacketReceivedAt] = useState(Date.now());
@@ -327,7 +358,8 @@ function App() {
   const clockShowingRef = useRef(false);
   const brightnessController = useMemo(() => new ClockBrightnessController(client.hardware), [client]);
   const pointerSwapRef = useRef<{ id: string; pointerId: number; x: number; y: number; moved: boolean } | null>(null);
-  const longPressRef = useRef<{ timer: number; cueTimer:number; pointerId: number; x: number; y: number } | null>(null);
+  const longPressRef = useRef<{ timer: number; cueTimer:number; pointerId: number; x: number; y: number; startedAt:number } | null>(null);
+  const lastCardTapRef = useRef<{id:string;x:number;y:number;at:number}|null>(null);
 
   useEffect(() => mirrorMode ? undefined : installDeviceInputForwarder(client), [client, mirrorMode]);
 
@@ -353,6 +385,15 @@ function App() {
     const removeForward = client.forward.onJson((message) => {
       if (!message || typeof message !== "object" || !("type" in message)) return;
       const data = message as { type?: unknown; payload?: unknown; requestId?: string };
+      if (data.type === 'screenshot:result' && data.payload) {
+        const result = data.payload as {id?:string;ok?:boolean;error?:string};
+        const pending = screenshotRequest.current;
+        if (pending && pending.id === result.id) {
+          window.clearTimeout(pending.timer); screenshotRequest.current = null;
+          setNotice(result.ok ? 'Screenshot saved' : result.error || 'Screenshot save failed');
+        }
+        return;
+      }
       if ((data.type === 'dashboard:saved' || data.type === 'dashboard:save-failed') && data.payload) {
         const saved = data.payload as {requestId?:string};
         if (mirrorMode) setSaveStatus(data.type === 'dashboard:saved' ? 'saved' : 'failed');
@@ -479,7 +520,7 @@ function App() {
     void brightnessController.setClockActive(clockActive).catch(() => setNotice("Display brightness could not be restored"));
   }, [brightnessController, clockActive]);
   const headerTitle = <span className="wordmark-full" title={displayName(displayedPreferences.displayName)}>{displayName(displayedPreferences.displayName)}</span>;
-  const subtitle = `${packet.cpuName} · ${packet.gpuName}`;
+  const subtitle = hardwareSubtitle(packet);
   const telemetryLabel = !packet.connected
     ? "WAITING"
     : packet.source === "hwinfo"
@@ -753,7 +794,30 @@ function App() {
       pointerSwapRef.current = { id, pointerId, x, y, moved: false };
       setDraggedId(id);
     }, 1500);
-    longPressRef.current = { timer, cueTimer, pointerId, x, y };
+    longPressRef.current = { timer, cueTimer, pointerId, x, y, startedAt: performance.now() };
+  };
+
+  const resetCardRanges = (id: string) => {
+    const item = (editorOpenRef.current ? draftLayout : layoutRef.current).find(candidate => candidate.id === id);
+    if (!item || item.metric === 'peripherals') return;
+    const metrics = [...new Set([item.metric,...item.details])].filter(key => metricKeys.includes(key));
+    if (!metrics.length) return;
+    void client.forward.json({type:'dashboard:reset-ranges',payload:{metrics}});
+    setNotice(`${metricMeta[item.metric].shortLabel} RANGES RESET`);
+  };
+
+  const registerCardTap = (id:string, event:ReactPointerEvent<HTMLElement>, pending:NonNullable<typeof longPressRef.current>) => {
+    if (editorOpenRef.current || arrangeMode || performance.now()-pending.startedAt>500 || Math.hypot(event.clientX-pending.x,event.clientY-pending.y)>12) return;
+    const item = layoutRef.current.find(candidate=>candidate.id===id);
+    if (!item || item.metric === 'peripherals') return;
+    const previous = lastCardTapRef.current;
+    const now = performance.now();
+    if (previous && previous.id===id && now-previous.at<=350 && Math.hypot(event.clientX-previous.x,event.clientY-previous.y)<=24) {
+      lastCardTapRef.current=null;
+      resetCardRanges(id);
+      return;
+    }
+    lastCardTapRef.current={id,x:event.clientX,y:event.clientY,at:now};
   };
 
   const moveCardGesture = (event: ReactPointerEvent<HTMLElement>) => {
@@ -768,6 +832,7 @@ function App() {
   };
 
   const finishCardGesture = (event: ReactPointerEvent<HTMLElement>) => {
+    const pending = longPressRef.current;
     cancelLongPress(event.pointerId);
     const active = pointerSwapRef.current;
     if (active && active.pointerId !== event.pointerId) return;
@@ -776,6 +841,7 @@ function App() {
     if (!active && displayedPreferences.layoutPreset === 'paged' && !editorOpenRef.current) finishPageSwipe(event);
     cancelGesture();
     if (metricsGridRef.current?.hasPointerCapture(event.pointerId)) metricsGridRef.current.releasePointerCapture(event.pointerId);
+    if (!active && pending) registerCardTap(cardAtPointer(event) || '',event,pending);
   };
 
   useEffect(() => {
@@ -930,13 +996,6 @@ function App() {
 
     const down = (event: KeyboardEvent) => {
       if (editorOpenRef.current) return;
-      if (isRangeResetKey(event.key, event.code, event.repeat)) {
-        event.preventDefault();
-        event.stopPropagation();
-        void client.forward.json({ type: "dashboard:reset-ranges" });
-        setNotice("MIN/MAX reset");
-        return;
-      }
       const slot = layoutSlotFromKey(event.key, event.code);
       if (slot === null) return;
       event.preventDefault();
@@ -975,6 +1034,23 @@ function App() {
       presetPressRef.current = null;
     };
   }, [client]);
+
+  useEffect(() => {
+    const uninstall = installScreenshotHold(document, () => {
+      if (screenshotRequest.current) return;
+      if (!preferencesRef.current.screenshotFolder) {setNotice('Choose a screenshot folder in desktop settings'); return;}
+      const id = `shot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const timer = window.setTimeout(() => {screenshotRequest.current = null; setNotice('Screenshot timed out — check the desktop connection');}, 30000);
+      screenshotRequest.current = {id,timer};
+      void (async () => {
+        const data = await captureDashboard();
+        if (screenshotRequest.current?.id !== id) return;
+        setNotice('Saving screenshot…');
+        await sendScreenshot(client.forward, id, data);
+      })().catch(error => {if(screenshotRequest.current?.id===id) {window.clearTimeout(timer); screenshotRequest.current=null; setNotice(error instanceof Error ? error.message : 'Screenshot failed');}});
+    }, () => !mirrorMode && !editorOpenRef.current);
+    return () => {uninstall(); if(screenshotRequest.current) window.clearTimeout(screenshotRequest.current.timer); screenshotRequest.current=null;};
+  }, [client,mirrorMode]);
 
   return (
     <main
@@ -1038,7 +1114,7 @@ function App() {
         </div>
       </header>
 
-      <section ref={metricsGridRef} className="metrics-grid" aria-label="Live PC metrics"
+      {displayedPreferences.layoutPreset === "llm" && !editorOpen ? <LlmDashboard packet={packet} /> : <section ref={metricsGridRef} className="metrics-grid" aria-label="Live PC metrics"
         onPointerDown={event => { if (displayedPreferences.layoutPreset === 'paged' && !editorOpenRef.current) startPageSwipe(event); }}
         onPointerMove={moveCardGesture} onPointerUp={finishCardGesture}
         onPointerCancel={cancelGesture} onLostPointerCapture={cancelGesture} onContextMenu={event => event.preventDefault()}>
@@ -1061,7 +1137,7 @@ function App() {
             onPointerDown={(event) => startCardGesture(item.id, event)}
           />
         ))}
-      </section>
+      </section>}
 
       {!packet.connected && packet.telemetryMessage && !editorOpen && (
         <p className="telemetry-message" role="status">{packet.telemetryMessage}</p>
@@ -1136,9 +1212,9 @@ function App() {
                       </button>
                     ))}
                   </div>
-                  <p className="editor-help">Every preset is a starting point. Change the main reading and up to three detail readings in every card, then move, resize, copy, hide, or delete cards.</p>
-                  <button className="arrange-launch-button" onClick={() => setArrangeMode(true)}>ARRANGE CARDS ON SCREEN</button>
-                  <div className="card-control-list">
+                  <p className="editor-help">{draftPreferences.layoutPreset === 'llm' ? 'LLM Monitor uses the fixed balanced layout you approved. It shows all detected GPUs without changing the cards saved for other layouts.' : 'Every preset is a starting point. Change the main reading and up to three detail readings in every card, then move, resize, copy, hide, or delete cards.'}</p>
+                  {draftPreferences.layoutPreset !== 'llm' && <button className="arrange-launch-button" onClick={() => setArrangeMode(true)}>ARRANGE CARDS ON SCREEN</button>}
+                  <div className="card-control-list" hidden={draftPreferences.layoutPreset === 'llm'}>
                     {draftLayout.map((item) => (
                       <div className={`card-control${item.hidden ? " is-hidden" : ""}${expandedCardId === item.id ? " is-expanded" : ""}`} key={item.id}>
                         <div className="card-control-top">
@@ -1206,6 +1282,11 @@ function App() {
                   <RangeSetting label="Brightness" value={draftPreferences.brightness} min={35} max={120} unit="%" onChange={(brightness) => setDraftPreferences((current) => ({ ...current, brightness }))} />
                   <RangeSetting label="Glow" value={draftPreferences.glow} min={0} max={100} unit="%" onChange={(glow) => setDraftPreferences((current) => ({ ...current, glow }))} />
                   <label className="toggle-setting"><span>Compact mode</span><input type="checkbox" checked={draftPreferences.compact} onChange={(event) => setDraftPreferences((current) => ({ ...current, compact: event.target.checked }))} /></label>
+                  <label><span>GPU for regular cards</span><ChoiceSelect aria-label="GPU for regular cards" value={draftPreferences.gpuSelection} onChange={(event) => setDraftPreferences((current) => ({ ...current, gpuSelection: event.target.value }))}>
+                    <option value="auto">Auto · display GPU</option>
+                    {(packet.gpus || []).map((gpu,index) => <option value={gpu.id} key={gpu.id}>{gpu.name}{gpu.displayActive ? " · display" : ` · GPU ${index+1}`}</option>)}
+                  </ChoiceSelect></label>
+                  <p className="editor-help">This choice controls GPU and VRAM readings on regular layouts. LLM Monitor shows every enumerated GPU and falls back to the primary Windows or HWiNFO GPU.</p>
                 </div>
               )}
 
@@ -1291,6 +1372,50 @@ function App() {
       </div>}
     </main>
   );
+}
+
+function LlmDashboard({packet}: {packet: DashboardPacket}) {
+  const llm = packet.llm;
+  const number = (value:number|null|undefined,digits=0) => value == null || !Number.isFinite(value) ? '--' : value.toFixed(digits);
+  const detectedGpus = packet.gpus || [];
+  const fallbackGpu = packet.connected && packet.gpuName && !/unavailable|starting telemetry/i.test(packet.gpuName) ? [{
+    id:'primary',name:packet.gpuName,displayActive:true,
+    usagePercent:packet.metrics.gpuUsage.value,temperatureC:packet.metrics.gpuTemp.value,
+    clockMhz:packet.metrics.gpuClock.value,powerWatts:packet.metrics.gpuPower.value,
+    vramUsedGb:packet.metrics.vramUsed.value,vramTotalGb:packet.capacities.vramGb,
+  }] : [];
+  const gpus = detectedGpus.length ? detectedGpus : fallbackGpu;
+  const totalVramUsed = gpus.reduce((total,gpu)=>total+(gpu.vramUsedGb || 0),0);
+  const totalVram = gpus.reduce((total,gpu)=>total+(gpu.vramTotalGb || 0),0);
+  const totalPower = gpus.reduce((total,gpu)=>total+(gpu.powerWatts || 0),0);
+  const contextPercent = llm?.contextUsed != null && llm.contextLimit ? Math.min(100,(llm.contextUsed/llm.contextLimit)*100) : null;
+  const hasGenerationSpeed = llm?.generationTokensPerSecond != null;
+  const primaryValue = hasGenerationSpeed ? number(llm?.generationTokensPerSecond,1) : llm?.status === 'generating' ? 'ACTIVE' : llm?.promptTokens != null ? number(llm.promptTokens) : llm?.status === 'loaded' ? 'READY' : '--';
+  const primaryUnit = hasGenerationSpeed ? 'TOK/S' : llm?.promptTokens != null && llm?.status !== 'generating' ? 'TOKENS' : '';
+  const primaryLabel = hasGenerationSpeed ? llm?.metricsScope === 'session' ? 'session average' : 'generation speed' : llm?.status === 'generating' ? 'local request' : llm?.promptTokens != null ? 'last prompt' : 'local backend';
+  const promptMiniValue = llm?.promptTokensPerSecond != null ? number(llm.promptTokensPerSecond) : number(llm?.promptTokens);
+  const promptMiniLabel = llm?.promptTokensPerSecond != null ? 'PROMPT TOK/S' : llm?.metricsScope === 'session' ? 'SESSION PROMPT' : 'PROMPT TOKENS';
+  const ram = packet.metrics.ramUsed.value;
+  const ramTotal = packet.capacities.ramGb;
+  return <section className="llm-dashboard" aria-label="Local LLM monitor">
+    <article className="llm-card llm-inference"><div className="llm-title">INFERENCE</div>
+      <div className="llm-primary"><strong>{primaryValue}</strong>{primaryUnit&&<span>{primaryUnit}</span>}<small>{primaryLabel}</small></div>
+      <div className="llm-first-token"><strong>{number(llm?.firstTokenSeconds,2)}{llm?.firstTokenSeconds != null ? 's' : ''}</strong><small>FIRST TOKEN</small></div>
+      <div className="llm-minis"><span><b>{promptMiniValue}</b><small>{promptMiniLabel}</small></span><span><b>{number(llm?.generatedTokens)}</b><small>{llm?.metricsScope === 'session' ? 'SESSION OUTPUT' : 'OUTPUT TOKENS'}</small></span><span><b>{llm?.status === 'generating' ? 'LIVE' : llm?.status === 'loaded' ? 'READY' : '--'}</b><small>STATE</small></span></div>
+    </article>
+    <article className="llm-card llm-context"><div className="llm-title">CONTEXT</div>
+      <div className="llm-context-value"><strong>{number(llm?.contextUsed)}</strong><span>/ {number(llm?.contextLimit)}</span><b>{contextPercent == null ? '--' : `${Math.round(contextPercent)}%`}</b></div>
+      <div className="llm-bar"><i style={{width:`${contextPercent || 0}%`}} /></div>
+      <p>{llm?.model || 'No supported model detected'}</p><small>{llm?.backendLabel || 'Ollama · LM Studio · llama.cpp'}{llm?.message ? ` · ${llm.message}` : ''}</small>
+    </article>
+    <article className="llm-card llm-gpus"><div className="llm-title">GPU + VRAM</div>
+      <div className="llm-gpu-list">{gpus.length ? gpus.map(gpu => {const vramPercent=gpu.vramUsedGb != null&&gpu.vramTotalGb ? Math.min(100,gpu.vramUsedGb/gpu.vramTotalGb*100):0;return <div className="llm-gpu" key={gpu.id}><div><b>{shortGpuName(gpu.name)}</b><span>{number(gpu.usagePercent)}%</span><span>{number(gpu.temperatureC)}°C</span><span>{number(gpu.vramUsedGb,1)} / {number(gpu.vramTotalGb)} GB</span></div><div className="llm-bar"><i style={{width:`${vramPercent}%`}} /></div></div>}) : <p className="llm-empty">No GPU telemetry detected</p>}</div>
+      <div className="llm-total">TOTAL VRAM <b>{number(totalVramUsed,1)} / {number(totalVram)} GB</b>{totalPower>0&&<span> · {number(totalPower)}W</span>}</div>
+    </article>
+    <article className="llm-card llm-system"><div className="llm-title">SYSTEM</div>
+      <div className="llm-system-grid"><span><b>{number(packet.metrics.cpuUsage.value)}%</b><small>CPU · {number(packet.metrics.cpuTemp.value)}°C · {number(packet.metrics.cpuPower.value)}W</small></span><span><b>{number(ram,1)} / {number(ramTotal)} GB</b><small>RAM · {number(packet.metrics.ramPercent.value)}%</small></span><span><b>{number(packet.metrics.storageRead.value,1)} {packet.metrics.storageRead.unit}</b><small>MODEL DISK READ</small></span><span><b>{totalPower>0?`${number(totalPower)}W`:'--'}</b><small>TOTAL GPU POWER</small></span></div>
+    </article>
+  </section>;
 }
 
 function MediaDrawer({ open, snapshot, artworkUrl, now, compact, onPrevious, onPlayPause, onNext }: {
@@ -1457,7 +1582,7 @@ function MetricCard({ item, packet, compact, editing, gaming, dragging, holding,
         <>
           <div className="metric-value-line"><span className="metric-main">{formatted.value}</span><span className="metric-unit">{formatted.unit}</span></div>
           {progress !== null && <div className="metric-bar" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>}
-          {!gamingGpu && <div className="metric-range" aria-label={`${meta.label} session range`}>
+          {!gamingGpu && !(gaming && item.metric === 'fps') && <div className="metric-range" aria-label={`${meta.label} session range`}>
             <span><b>MIN</b> {minimum.value}{minimum.unit}</span><span><b>MAX</b> {maximum.value}{maximum.unit}</span>
           </div>}
         </>

@@ -31,6 +31,7 @@ import {BrandingSettings} from '../src/BrandingSettings';
 
 const dashboardDocKey = 'dashboard-state';
 const dashboardConfigKey = 'dashboardState';
+const llmApiTokenConfigKey = 'llmApiToken';
 const themes: { value: ThemeName; label: string }[] = [
   { value: 'rog', label: 'ROG Neon' }, { value: 'nvidia', label: 'NVIDIA' },
   { value: 'miami', label: 'Neon Miami' }, { value: 'aurora', label: 'Aurora' },
@@ -41,7 +42,7 @@ const presets: { value: LayoutPreset; label: string }[] = [
   { value: 'four', label: 'Four Big' }, { value: 'rows', label: 'System Rows' },
   { value: 'list', label: 'Readable List' }, { value: 'gaming', label: 'Gaming Focus' },
   { value: 'six', label: 'Balanced Six' }, { value: 'paged', label: 'Two at a Time' },
-  {value:'devices',label:'Devices'},
+  {value:'devices',label:'Devices'}, {value:'llm',label:'LLM Monitor'},
 ];
 const metricLabels: Record<MetricKey, string> = {
   peripherals: 'Device batteries',
@@ -112,7 +113,7 @@ function parseState(value: string | null | undefined): DashboardState | null {
         page: clamp(Math.round(Number(item.page) || 0), 0, 2),
       } satisfies LayoutItem];
     });
-    if (!layout.length) return null;
+    if (!layout.length && preferences.layoutPreset !== 'llm') return null;
     return {
       layout: upgradeGamingLayout(layout,preferences.layoutPreset || defaultPreferences.layoutPreset),
       layoutProfiles: cloneLayoutProfiles(parsed.layoutProfiles),
@@ -120,6 +121,9 @@ function parseState(value: string | null | undefined): DashboardState | null {
       preferences: {
         ...clonePreferences(defaultPreferences),
         ...preferences,
+        screenshotFolder: typeof preferences.screenshotFolder === 'string' ? preferences.screenshotFolder.trim().slice(0, 1000) : '',
+        gpuSelection: typeof preferences.gpuSelection === 'string' && /^(?:auto|nvidia:\d+)$/.test(preferences.gpuSelection) ? preferences.gpuSelection : 'auto',
+        llmLlamaPort: Number.isInteger(preferences.llmLlamaPort) && preferences.llmLlamaPort! >= 1 && preferences.llmLlamaPort! <= 65535 ? preferences.llmLlamaPort! : 0,
         displayName: displayName(preferences.displayName),
         clockLogo: clockLogo(preferences.clockLogo),
         networkProbeEnabled: preferences.networkProbeEnabled !== false,
@@ -153,6 +157,7 @@ function Settings() {
   const [context, setContext] = useState<SettingsContext | null>(null);
   const [state, setState] = useState<DashboardState>(defaultState);
   const [status, setStatus] = useState('Loading saved dashboard…');
+  const [llmApiToken, setLlmApiToken] = useState('');
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -168,6 +173,7 @@ function Settings() {
         if (!alive) return;
         setContext(ctx);
         const config = entries.find(entry => entry.key === dashboardConfigKey)?.value;
+        setLlmApiToken(entries.find(entry => entry.key === llmApiTokenConfigKey)?.value || '');
         apply(document.value) || apply(config);
         setStatus(document.value || config ? 'Loaded saved dashboard' : 'Ready — using the default dashboard');
       } catch (error) {
@@ -227,6 +233,7 @@ function Settings() {
     setStatus('Saving dashboard to BridgeThing…');
     try {
       await settings.config.set(dashboardConfigKey, encoded);
+      await settings.config.set(llmApiTokenConfigKey, llmApiToken.trim());
       await settings.doc.set(dashboardDocKey, encoded);
       setStatus('Saved — the Car Thing will update immediately when BrutalDash is active');
     } catch (error) {
@@ -290,6 +297,22 @@ function Settings() {
     </section>
 
     <section>
+      <h2>Screenshots</h2>
+      <label className="field"><span>Screenshot folder on this PC</span><input placeholder="D:\Screenshots" value={preferences.screenshotFolder} onChange={event => setPreference({screenshotFolder:event.target.value})} /><small>Hold the physical dial for 1.2 seconds to save a PNG here. Enter a full folder path, then save settings. Leave blank to disable.</small></label>
+    </section>
+
+    <section>
+      <h2>Graphics hardware</h2>
+      <label className="field"><span>GPU for regular dashboard cards</span><ChoiceSelect aria-label="GPU for regular dashboard cards" value={preferences.gpuSelection} onChange={event => setPreference({gpuSelection:event.target.value})}><option value="auto">Auto · display GPU</option><option value="nvidia:0">NVIDIA GPU 1</option><option value="nvidia:1">NVIDIA GPU 2</option><option value="nvidia:2">NVIDIA GPU 3</option><option value="nvidia:3">NVIDIA GPU 4</option></ChoiceSelect><small>The on-device customization menu shows detected GPU names. LLM Monitor shows every enumerated GPU and falls back to the primary Windows or HWiNFO GPU.</small></label>
+    </section>
+
+    <section>
+      <h2>Local AI</h2>
+      <label className="field"><span>Custom llama.cpp port</span><input type="number" min="0" max="65535" value={preferences.llmLlamaPort} onChange={event => setPreference({llmLlamaPort:clamp(Math.round(Number(event.target.value)||0),0,65535)})} /><small>Use 0 for automatic detection. BrutalDash checks standard local llama.cpp ports, Ollama, and LM Studio without starting or keeping a model loaded.</small></label>
+      <label className="field"><span>Local AI API token</span><input type="password" autoComplete="off" value={llmApiToken} onChange={event => setLlmApiToken(event.target.value.slice(0,512))} /><small>Optional. Required only when the local server protects its status endpoints. The token stays in BridgeThing desktop settings and is sent only to localhost.</small></label>
+    </section>
+
+    <section>
       <h2>Game recognition</h2>
       <label className="check"><input type="checkbox" checked={preferences.networkProbeEnabled} onChange={event => setPreference({networkProbeEnabled:event.target.checked})} /> Probe network latency and packet loss</label>
       <label className="field"><span>ICMP probe target (IPv4, not game-server ping)</span><input value={preferences.networkProbeTarget} onChange={event => setPreference({networkProbeTarget:event.target.value})} /></label>
@@ -304,7 +327,8 @@ function Settings() {
       <h2>Layout</h2>
       <p className="hint">Choose a starting layout, then move, resize, hide, or reassign every card below. X/Y use the same six-column grid as the device.</p>
       <label className="field preset"><span>Starting layout</span><ChoiceSelect aria-label="Starting layout" value={preferences.layoutPreset} onChange={event => choosePreset(event.target.value as LayoutPreset)}>{presets.map(preset => <option key={preset.value} value={preset.value}>{preset.label}</option>)}</ChoiceSelect></label>
-      <div className="cards">
+      {preferences.layoutPreset === 'llm' && <p className="hint">LLM Monitor uses the fixed balanced layout you approved. Regular dashboard layouts keep their own card arrangements.</p>}
+      <div className="cards" hidden={preferences.layoutPreset === 'llm'}>
         {layout.map((card, index) => <article className="card" key={card.id}>
           <div className="card-head"><b>Card {index + 1}</b><button className="text-button" type="button" onClick={() => removeCard(card.id)} disabled={layout.length <= 1}>Remove</button></div>
           <div className="grid two">
@@ -325,7 +349,7 @@ function Settings() {
           }}><option value="">None</option>{metricKeys.filter(metric => metric !== card.metric).map(metric => <option key={metric} value={metric}>{metricLabels[metric]}</option>)}</ChoiceSelect>)}</div>
         </article>)}
       </div>
-      <button type="button" className="secondary" onClick={addCard} disabled={layout.length >= 18}>Add card</button>
+      <button type="button" className="secondary" onClick={addCard} disabled={preferences.layoutPreset === 'llm' || layout.length >= 18}>Add card</button>
     </section>
 
     <section>

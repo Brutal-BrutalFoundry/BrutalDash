@@ -1,4 +1,21 @@
-# pc-dashboard-bridgething
+# BrutalDash
+
+## 0.1.60 (2026-09-29)
+
+- Added an LLM Monitor layout with model status, token speed, token counts, context usage, CPU, RAM, GPU readings, and total VRAM.
+- Keep the latest inference and context readings visible between runs and after restarting.
+- Added local llama.cpp connection settings, including a custom port and optional authentication.
+- Added GPU selection for GPU and VRAM cards, with matching HWiNFO readings on multi-GPU systems.
+- Show all detected GPU models in the dashboard header.
+- Added screenshots by holding the physical dial, saved to the PC folder selected in settings.
+- Fixed saved card choices and positions resetting after reconnecting or restarting.
+- Restored button 4 as the fourth saved layout shortcut.
+- Added double-tap to reset a card’s min/max readings.
+- Improved Device Battery connection updates.
+- Fixed the disconnected clock display on LLM Monitor.
+- Removed min/max from the Gaming FPS card and fixed clipped supporting readings.
+- Fixed Gaming GPU card sizing when using the Device Battery card.
+
 
 ## 0.1.53 - Stable (2026-09-27)
 

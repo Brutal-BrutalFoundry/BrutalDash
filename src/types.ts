@@ -8,7 +8,7 @@ export type ThemeName =
   | "amber"
   | "oled";
 
-export type LayoutPreset = "four" | "rows" | "list" | "gaming" | "six" | "paged" | "devices";
+export type LayoutPreset = "four" | "rows" | "list" | "gaming" | "six" | "paged" | "devices" | "llm";
 export type ClockMode = "automatic" | "dashboard" | "clock";
 export type ClockFace = "bold" | "foundry" | "minimal" | "analog-foundry" | "analog-minimal";
 export type ClockFormat = "12" | "24";
@@ -62,6 +62,35 @@ export type DashboardAlert = {
   value: string;
 };
 
+export type GpuAdapterSnapshot = {
+  id: string;
+  name: string;
+  displayActive: boolean | null;
+  usagePercent: number | null;
+  temperatureC: number | null;
+  clockMhz: number | null;
+  powerWatts: number | null;
+  vramUsedGb: number | null;
+  vramTotalGb: number | null;
+};
+
+export type LlmSnapshot = {
+  metricsScope?: 'request' | 'session';
+  backend: "ollama" | "lmstudio" | "llamacpp" | null;
+  backendLabel: string | null;
+  model: string | null;
+  status: "unavailable" | "loaded" | "generating";
+  generationTokensPerSecond: number | null;
+  promptTokensPerSecond: number | null;
+  firstTokenSeconds: number | null;
+  promptTokens: number | null;
+  generatedTokens: number | null;
+  contextUsed: number | null;
+  contextLimit: number | null;
+  elapsedSeconds: number | null;
+  message: string;
+};
+
 export type DashboardPacket = {
   peripherals?: import("./peripherals").PeripheralSnapshot;
   networkQuality?: import('./network-quality').NetworkQuality;
@@ -74,6 +103,8 @@ export type DashboardPacket = {
   telemetryMessage: string | null;
   cpuName: string;
   gpuName: string;
+  gpus: GpuAdapterSnapshot[];
+  llm: LlmSnapshot | null;
   game: string | null;
   foreground: { processName: string; displayName: string; fullscreen: boolean } | null;
   capacities: DashboardCapacities;
@@ -99,6 +130,9 @@ export type LayoutItem = {
 };
 
 export type DashboardPreferences = {
+  screenshotFolder: string;
+  gpuSelection: string;
+  llmLlamaPort: number;
   displayName: string;
   clockLogo: string | null;
   theme: ThemeName;
@@ -139,7 +173,7 @@ export type DashboardState = {
 
 export function cloneLayoutProfiles(profiles?: DashboardState['layoutProfiles']): NonNullable<DashboardState['layoutProfiles']> {
   const result: NonNullable<DashboardState['layoutProfiles']> = {};
-  for (const preset of ['four','rows','list','gaming','six','paged','devices'] as const) {
+  for (const preset of ['four','rows','list','gaming','six','paged','devices','llm'] as const) {
     const items = profiles?.[preset];
     if (Array.isArray(items) && items.length <= 18 && items.every(item => item && typeof item.id === 'string' && metricKeys.includes(item.metric) && Array.isArray(item.details) && item.details.every(key => metricKeys.includes(key)) && [item.x,item.y,item.w,item.h].every(Number.isFinite) && item.x >= 0 && item.x < 6 && item.y >= 0 && item.y <= 11 && item.w >= 1 && item.w <= 6 && item.h >= 1 && item.h <= 4)) {
       result[preset] = upgradeGamingLayout(items.map(item => ({...item, details:[...item.details]})),preset);
@@ -219,6 +253,7 @@ const card = (
 ): LayoutItem => ({ id, metric, details, x, y, w, h, hidden: false, page });
 
 export const presetLayouts: Record<LayoutPreset, LayoutItem[]> = {
+  llm: [],
   devices: [card("devices", "peripherals", 0, 0, 6, 4, [])],
   four: [
     card("gpu", "gpuUsage", 0, 0, 3, 2, ["gpuTemp", "gpuPower", "vramUsed"]),
@@ -281,6 +316,9 @@ export const dashboardUiRevision = 6;
 export const defaultLayout: LayoutItem[] = clonePresetLayout("four");
 
 export const defaultPreferences: DashboardPreferences = {
+  screenshotFolder: '',
+  gpuSelection: 'auto',
+  llmLlamaPort: 0,
   displayName: 'BrutalDash',
   clockLogo: null,
   theme: "miami",

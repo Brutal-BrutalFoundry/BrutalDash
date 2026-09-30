@@ -11,7 +11,7 @@
 | Network | Download/upload throughput and peaks; Gaming Focus also shows ICMP latency and rolling packet loss to a labeled target. |
 | Gaming | Detected game, FPS, frametime, and 1% low. |
 
-BrutalDash tracks session minimum and maximum values for supported readings. Button 4 clears the current session range and begins a fresh one from the next live sample.
+BrutalDash tracks session minimum and maximum values for supported readings. Double-tap a telemetry card to reset its minimum and maximum readings.
 
 ## Telemetry sources
 
@@ -32,7 +32,7 @@ Native Windows metrics remain available without HWiNFO. The bundled CPU host use
 - Hold any dashboard card for 1.5 seconds, drag onto another, and release to swap and auto-save that layout. Normal operation resumes immediately. Explicit Arrange Mode is also available in Customize.
 - Desktop-side settings page for larger-screen editing.
 - Save, export, and import dashboard states.
-- Three hardware layout-memory buttons. Tap to recall and hold to save or overwrite.
+- Four hardware layout-memory buttons. Tap to recall and hold to save or overwrite.
 
 ## Appearance
 
@@ -81,3 +81,15 @@ Configure threshold alerts for CPU temperature, GPU temperature, and RAM use. Al
 - Percentage-based colors, optional charging pulse, solid/outline icons and learned time estimates.
 - Bundled HaloBattery 1.11.0 providers plus an ASUS keyboard reader; no separate runtime installation.
 - Locally tested with Audeze Maxwell, G502 X PLUS and Scope II 96 via OMNI. Other models retain upstream support limits; a detected receiver does not guarantee readable battery data.
+
+## LLM Monitor and multiple GPUs
+
+- Local model status, inference speed, token counts and context usage. Token throughput requires a backend that exposes timing or metrics.
+- Keep the latest readings between runs and across desktop restarts.
+- Dual GPU readings and total VRAM, plus CPU, RAM and model disk activity.
+- Saved GPU selection for standard GPU and VRAM cards.
+- Custom localhost port and optional authentication for llama.cpp.
+
+## Screenshots
+
+Hold the physical dial to save a PNG screenshot to the PC folder chosen in desktop settings.

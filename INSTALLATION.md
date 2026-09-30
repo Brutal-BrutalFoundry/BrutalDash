@@ -20,7 +20,8 @@ HWiNFO is not required. BrutalDash starts with native Windows telemetry and adds
 5. Review and accept the local extension permissions:
    - **Run** starts the bundled, local telemetry and FPS helpers.
    - **FFI** accesses native Windows APIs, including ICMP probing and optional HWiNFO Shared Memory.
-   - **Network: 127.0.0.1:8894** allows the local BridgeThing connection.
+   - **Network: 127.0.0.1** allows local monitoring connections.
+   - **Write** saves screenshots as PNGs inside the PC folder you choose.
    - If Windows requests elevation for bundled PawnIO setup, approve it to enable privileged CPU sensor access. No motherboard-specific setup is required.
 6. Select BrutalDash in the installed-app list and put it on the connected device screen.
 7. Wait for the status badge to report **NATIVE**, **HWiNFO**, or **HWiNFO+**. The first two indicate that telemetry is active. `HWiNFO+` means HWiNFO is supplying data while native Windows collection fills a value HWiNFO did not provide.
@@ -37,7 +38,7 @@ Choose the Devices layout, or add a Device Battery card to an existing layout. G
 
 The battery helper and runtime are bundled. No Python, HaloBattery, or vendor app installation is needed. Already-configured BridgeThing devices use the normal ZIP installation; BrutalDash does not install firmware.
 
-Battery levels refresh about every 30 seconds. Support depends on the device model and connection mode. Sleeping or disconnected devices may disappear until they respond again. Time estimates learn from actual percentage changes and remain approximate; Learning or Updating appears when there is not enough current evidence.
+Battery refresh timing varies by provider. Support depends on the device model and connection mode. Sleeping or disconnected devices may disappear until they respond again. Time estimates learn from actual percentage changes and remain approximate; Learning or Updating appears when there is not enough current evidence.
 
 ## Optional HWiNFO integration
 
@@ -72,9 +73,10 @@ Direct 1.5-second hold-and-drag card swaps save automatically without confirmati
 
 | Control | What it does |
 | --- | --- |
-| Button 1, 2, or 3, tap | Recall the saved layout assigned to that button. |
-| Button 1, 2, or 3, hold | Save the current layout to that button. Holding it again replaces that button's saved layout. |
-| Button 4 | Reset the current session's minimum and maximum readings. |
+| Button 1, 2, 3, or 4, tap | Recall the saved layout assigned to that button. |
+| Button 1, 2, 3, or 4, hold | Save the current layout to that button. Holding it again replaces that button's saved layout. |
+| Double-tap a telemetry card | Reset that card's minimum and maximum readings. |
+| Hold the physical dial | Save a screenshot to the PC folder selected in desktop settings. |
 | Mode button | Open or close Customize. Unsaved edits offer Save, Discard, or Keep editing. In clock mode, toggle automatic display dimming. |
 | Back button | Open or close the PC media drawer. In clock mode, toggle automatic display dimming. |
 | Wheel while the media drawer is open | Adjust the active PC media session's volume. |

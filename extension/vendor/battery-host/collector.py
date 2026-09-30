@@ -1,6 +1,6 @@
 """Background battery collector. No tray UI, updater, persistence or startup task.
 
-One persistent process; providers retain caches, run at most once per 30s, and
+One persistent process; providers retain caches, run serially with bounded refresh intervals, and
 never block the JSON heartbeat. A stuck provider terminates this process after
 45s; the desktop supervisor owns its whole process tree and backs off retries.
 """
@@ -16,10 +16,27 @@ from providers import (RazerProvider, AudezeProvider, WLmouseProvider, MchosePro
     PlayStationProvider, BluetoothProvider)
 from providers.asus import AsusProvider
 from providers.headsets import HeadsetProvider
+from providers import hidlist
 from dedupe import dedupe_controllers, drop_bluetooth_duplicates
 
 logging.disable(logging.CRITICAL)
-POLL_SECONDS = 30
+POLL_SECONDS = 10
+BLUETOOTH_POLL_SECONDS = 30
+MIN_REFRESH_SECONDS = 5
+
+
+def wait_for_refresh(wake, interval, sleep=time.sleep):
+    # A USB connection storm cannot cause back-to-back hardware requests.
+    sleep(MIN_REFRESH_SECONDS)
+    wake.wait(max(0, interval - MIN_REFRESH_SECONDS))
+
+
+def wake_changed_interfaces(previous, current, wakeups):
+    if previous is not None and current is not None and previous != current:
+        for name, wake in wakeups.items():
+            if name != "bluetooth":
+                wake.set()
+    return current if current is not None else previous
 PROVIDERS = [RazerProvider, AudezeProvider, WLmouseProvider, MchoseProvider,
     HyperXProvider, LogitechProvider, SteelSeriesProvider, XInputProvider,
     PlayStationProvider, BluetoothProvider, AsusProvider, HeadsetProvider]
@@ -54,9 +71,14 @@ def normalize(status, sampled_at):
 def main():
     lock = threading.Lock()
     states = {p.name: dict(devices=[], sampledAt=0, startedAt=0, status='starting') for p in PROVIDERS}
+    wakeups = {p.name: threading.Event() for p in PROVIDERS}
+    paths = hidlist.interface_paths()
     def run(factory):
         provider = factory()
+        wake = wakeups[provider.name]
+        interval = BLUETOOTH_POLL_SECONDS if provider.name == "bluetooth" else POLL_SECONDS
         while True:
+            wake.clear()
             with lock:
                 states[provider.name]['startedAt'] = time.monotonic()
             try:
@@ -67,11 +89,12 @@ def main():
             with lock:
                 states[provider.name] = dict(devices=devices[:64], sampledAt=int(time.time()*1000),
                                             startedAt=0, status=status)
-            time.sleep(POLL_SECONDS)
+            wait_for_refresh(wake, interval)
     for factory in PROVIDERS:
         threading.Thread(target=run, args=(factory,), daemon=True).start()
     while True:
         time.sleep(2)
+        paths = wake_changed_interfaces(paths, hidlist.interface_paths(), wakeups)
         with lock:
             snapshot = {key:dict(value) for key,value in states.items()}
         # Do not accumulate hung threads or stale readings indefinitely.

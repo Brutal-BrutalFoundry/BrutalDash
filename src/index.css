@@ -491,6 +491,7 @@ input:focus-visible {
 
 .is-clock-mode > .dashboard-header,
 .is-clock-mode > .metrics-grid,
+.is-clock-mode > .llm-dashboard,
 .is-clock-mode > .telemetry-message,
 .is-clock-mode > .page-swipe-zone,
 .is-clock-mode > .page-switcher,
@@ -2268,7 +2269,7 @@ select {
 .persistent-editor[hidden] { display: none; }
 .brand-block h1 { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock-brand .wordmark-full { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.preset-gaming:not(.is-arranging) .metrics-grid { height: calc(100% - 153px); grid-template-rows: repeat(2,minmax(0,1.2fr)) repeat(2,minmax(0,1fr)); }
+.preset-gaming:not(.is-arranging) .metrics-grid { height: calc(100% - 153px); grid-template-rows: repeat(4,minmax(0,1fr)); }
 .preset-gaming .metric-card .metric-main { font-size: 42px; }
 .preset-gaming .fps-card .metric-main { font-size: 64px; }
 .preset-gaming .capacity-card .metric-main { font-size: 34px; }
@@ -2279,6 +2280,27 @@ select {
 .gaming-gpu-details .gpu-detail-heading { line-height: 1.1; }
 .gaming-gpu-details > small { font-size: 14px; color: var(--text); }
 .gaming-gpu-details strong { font-size: 19px; color: var(--text); margin-left: 6px; }
+
+/* Fixed 800x480 LLM monitor. It bypasses the movable card grid so the dense
+   dual-GPU data remains readable and cannot disturb saved regular layouts. */
+.llm-dashboard { height: calc(100% - 75px); display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1.06fr; gap:8px; position:relative; z-index:1; }
+.llm-card { position:relative; overflow:hidden; border:1px solid var(--border); border-radius:11px; background:var(--surface-solid); padding:9px 12px; color:var(--text); }
+.llm-card::before { content:""; position:absolute; inset:0 0 auto; height:2px; background:linear-gradient(90deg,var(--accent),var(--gpu)); }
+.llm-title { color:var(--accent); font-size:14px; line-height:18px; font-weight:900; letter-spacing:.04em; }
+.llm-primary { position:absolute; left:12px; top:48px; }
+.llm-primary strong { display:inline; font-size:40px; line-height:40px; }
+.llm-primary span { color:var(--gpu); margin-left:5px; font-size:15px; font-weight:900; }
+.llm-primary small,.llm-first-token small { display:block; font-size:11px; color:var(--muted); }
+.llm-first-token { position:absolute; right:13px; top:58px; text-align:right; }
+.llm-first-token strong { display:block; font-size:20px; }
+.llm-minis { position:absolute; inset:auto 12px 10px; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.llm-minis>span { text-align:center; padding:6px 4px; border:1px solid #ffffff16; border-radius:7px; background:#ffffff09; }
+.llm-minis b { display:block; font-size:18px; }.llm-minis small { display:block; color:var(--muted); font-size:9px; }
+.llm-context-value { display:flex; align-items:baseline; gap:4px; margin-top:18px; }.llm-context-value strong{font-size:35px}.llm-context-value span{color:var(--gpu);font-size:18px;font-weight:800}.llm-context-value b{margin-left:auto;font-size:15px}
+.llm-bar{height:6px;background:#ffffff17;border-radius:4px;overflow:hidden;margin:5px 0}.llm-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gpu),var(--accent));border-radius:inherit}
+.llm-context p{margin:12px 0 2px;font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.llm-context>small{display:block;color:var(--muted);font-size:10px;line-height:12px;max-height:24px;overflow:hidden}
+.llm-gpu-list{margin-top:4px}.llm-gpu{padding:3px 0}.llm-gpu>div:first-child{display:grid;grid-template-columns:1.45fr .45fr .55fr 1fr;align-items:baseline;gap:4px}.llm-gpu b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.llm-gpu span{text-align:right;font-size:12px}.llm-gpu .llm-bar{margin:3px 0;height:5px}.llm-total{position:absolute;inset:auto 12px 9px;text-align:center;padding:7px;border:1px solid #ffffff18;border-radius:7px;background:#ffffff08;font-size:12px}.llm-total b{font-size:17px;margin-left:4px}.llm-total span{color:var(--muted)}.llm-empty{color:var(--muted);font-size:13px}
+.llm-system-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 18px;margin-top:17px}.llm-system-grid b{display:block;font-size:24px;line-height:25px}.llm-system-grid small{display:block;color:var(--muted);font-size:10px}.preset-llm .system-name{max-width:310px}.preset-llm.is-media-open .llm-dashboard{height:calc(100% - 178px)}.preset-llm.is-media-open .llm-system-grid{gap:4px 12px;margin-top:5px}.preset-llm.is-media-open .llm-system-grid b{font-size:18px}.preset-llm.is-media-open .llm-primary strong{font-size:32px}.preset-llm.is-media-open .llm-minis{display:none}
 .gaming-network { position: relative; z-index: 1; height: 80px; margin-top: 7px; padding: 7px 10px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-solid); color: var(--text); }
 .network-reading { display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--border); padding-left: 12px; min-width: 0; align-self: start; }
 .network-reading:first-child { border-left: 0; padding-left: 2px; }
@@ -2308,7 +2330,7 @@ select {
   column-gap: 10px;
 }
 .dashboard.preset-list .metric-range, .dashboard.preset-rows .row-card .metric-range {
-  flex-direction: column; align-items: flex-start; gap: 0; font-size: 16px;
+  flex-direction: column; align-items: flex-start; gap: 0; font-size: 15px;
 }
 .dashboard.preset-list .metric-details, .dashboard.preset-rows .row-card .metric-details {
   font-size: 16px; line-height: 1.2; gap: 2px 8px;
@@ -2341,6 +2363,7 @@ select {
 }
 .dashboard.preset-list .metric-details, .dashboard.preset-rows .row-card .metric-details { margin-top: 0; gap: 4px; }
 .dashboard.preset-list .metric-detail-reading, .dashboard.preset-rows .row-card .metric-detail-reading { padding: 1px 5px; font-size: 18px; }
+.dashboard.preset-gaming:not(.is-media-open) .fps-card .metric-details { margin-top: 1px; line-height: 1; }
 .preset-rows .hero-card.network-card .metric-main { font-size: 42px; }
 
 /* Approved larger-value option 2: keep labels alongside the gaming readings. */
@@ -2389,3 +2412,9 @@ select {
 .dashboard.preset-gaming.is-media-open .metric-details { margin-top: 2px; }
 .dashboard.preset-gaming.is-media-open .metric-details .metric-detail-reading { font-size: 16px; line-height: 16px; padding: 0 6px; }
 .dashboard.preset-gaming.is-media-open .metric-details .metric-detail-reading b { font-size: 12px; line-height: 12px; }
+
+/* Every gaming row must fit the GPU card after saved card swaps. */
+.dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-card { padding-top: 5px; padding-bottom: 5px; }
+.dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-details .gpu-detail-heading { line-height: 14px; }
+.dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-details > div:not(.gpu-detail-heading) { line-height: 21px; }
+.dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-details > small { line-height: 20px; }

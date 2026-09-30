@@ -1,15 +1,17 @@
+import {ScreenshotWriter} from './screenshots';
 import {PeripheralProvider} from './peripherals';
 import { asJson, defineExtension, json, type ExtensionContext } from '@bridgething/extension';
 import { readForegroundApp, type ForegroundApp } from './foreground';
 import { detectedGame, foregroundPacket, fpsCaptureTarget, gameCandidate, processFileName } from './game';
 import { readDiskIoRates } from './disk';
-import { readHwInfoSharedMemory, type HwInfoSensor } from './hwinfo';
+import { readHwInfoSharedMemory, sensorsForGpu, type HwInfoSensor } from './hwinfo';
 import { readNativeSystemMetrics, readProcessorName } from './native';
 import { readNetworkRates } from './network';
 import { NetworkQualityMonitor } from './network-quality';
 import { validProbeTarget } from '../src/network-quality';
 import { displayName, clockLogo } from '../src/branding';
-import { readNvidiaGpuMetrics } from './nvidia';
+import { readNvidiaGpus, selectNvidiaGpu, type NvidiaGpuSnapshot } from './nvidia';
+import { readLlmSnapshot, retainLlmSnapshot } from './llm';
 import { PresentMonProvider } from './presentmon';
 import { NativeCpuProvider } from './cpu-native';
 import { readFixedDriveSpace, type StorageSpace } from './storage';
@@ -35,11 +37,14 @@ import {
   type LayoutPreset,
   type MetricKey,
   type MetricValue,
+  type LlmSnapshot,
   type TelemetryMetrics,
   type ThemeName,
 } from '../src/types';
 
 declare const Deno: {
+  mkdir(path: string, options: {recursive: boolean}): Promise<void>;
+  writeFile(path: string, bytes: Uint8Array, options: {createNew: boolean}): Promise<void>;
   serve(
     options: { hostname: string; port: number; onListen(): void },
     handler: (request: Request) => Response | Promise<Response>,
@@ -49,8 +54,9 @@ declare const Deno: {
 
 type DashboardMessage =
   | { type: 'dashboard:get' }
+  | { type: 'screenshot:transfer'; payload: {id?: unknown; part?: unknown; data?: unknown; index?: unknown} }
   | { type: 'dashboard:save'; payload: DashboardState; requestId?: string }
-  | { type: 'dashboard:reset-ranges' }
+  | { type: 'dashboard:reset-ranges'; payload?: {metrics?: unknown} }
   | { type: 'media:subscribe'; payload: { active: boolean } }
   | { type: 'media:command'; payload: { command: SystemMediaCommand } }
   | { type: 'media:volume'; payload: { delta: number; source: string | null } }
@@ -61,8 +67,11 @@ type DashboardMessage =
 const POLL_INTERVAL_MS = 500;
 const STORAGE_REFRESH_MS = 30_000;
 const STATE_KEY_PREFIX = 'dashboard-state:';
+const DASHBOARD_STATE_KEY = 'dashboard-state';
+const LLM_SNAPSHOT_KEY = 'llm-last-snapshot-v1';
 const metricRanges = new Map<MetricKey, { min: number; max: number }>();
 const states = new Map<string, DashboardState>();
+const screenshots = new ScreenshotWriter();
 const networkProbes = new Map<string, NetworkQualityMonitor>();
 const saveQueues = new Map<string, Promise<void>>();
 
@@ -76,6 +85,7 @@ function saveDashboard(ctx: ExtensionContext, deviceId: string, value: Dashboard
     if (deviceId === primaryDeviceId(ctx)) mirrorBroadcast(message);
   };
   const queued = (saveQueues.get(deviceId) || Promise.resolve()).catch(() => undefined).then(async () => {
+    await ctx.kv.set(DASHBOARD_STATE_KEY, next);
     await ctx.kv.set(stateKey(deviceId), next);
     states.set(deviceId, next);
     await sendState(ctx, deviceId, requestId);
@@ -96,6 +106,8 @@ let nativeCpu: NativeCpuProvider | null = null;
 let peripheralProvider: PeripheralProvider | null = null;
 let lastGame: { label: string; processName: string; seenAt: number } | null = null;
 let lastMediaVolumeWarningAt = 0;
+let lastLlmSnapshot: LlmSnapshot | null = null;
+let persistedLlmSnapshot = '';
 const mediaSubscribers = new Set<string>();
 let mediaTimer: ReturnType<typeof setInterval> | undefined;
 let mediaPolling = false;
@@ -176,7 +188,7 @@ const finite = (value: unknown): number | null =>
 const reading = (value: number | null, unit: string): MetricValue => ({ value, unit, min: null, max: null });
 const empty = (unit: string): MetricValue => reading(null, unit);
 const themes = new Set<ThemeName>(['rog', 'nvidia', 'miami', 'aurora', 'synthwave', 'arctic', 'amber', 'oled']);
-const layoutPresets = new Set<LayoutPreset>(['four', 'rows', 'list', 'gaming', 'six', 'paged', 'devices']);
+const layoutPresets = new Set<LayoutPreset>(['four', 'rows', 'list', 'gaming', 'six', 'paged', 'devices', 'llm']);
 const clockModes = new Set(['automatic', 'dashboard', 'clock']);
 const clockFaces = new Set(['bold', 'foundry', 'minimal', 'analog-foundry', 'analog-minimal']);
 const clockFormats = new Set(['12', '24']);
@@ -240,6 +252,9 @@ function validState(value: unknown): DashboardState | null {
     preferences: {
       ...clonePreferences(defaultPreferences),
       ...preferences,
+      screenshotFolder: typeof preferences.screenshotFolder === 'string' ? preferences.screenshotFolder.trim().slice(0, 1000) : '',
+      gpuSelection: typeof preferences.gpuSelection === 'string' && /^(?:auto|nvidia:\d+)$/.test(preferences.gpuSelection) ? preferences.gpuSelection : 'auto',
+      llmLlamaPort: Number.isInteger(preferences.llmLlamaPort) && preferences.llmLlamaPort! >= 1 && preferences.llmLlamaPort! <= 65535 ? preferences.llmLlamaPort! : 0,
       displayName: displayName(preferences.displayName),
       clockLogo: clockLogo(preferences.clockLogo),
       enabledMetrics: Array.isArray(preferences.enabledMetrics)
@@ -416,13 +431,19 @@ function gameFor(app: ForegroundApp | null, hasPresentMonReadings: boolean, pref
   return null;
 }
 
-function pollingPreferences(ctx: ExtensionContext) {
+function pollingSettings(ctx: ExtensionContext) {
   for (const device of ctx.devices) {
     const state = states.get(device.id);
-    if (device.active && state) return clonePreferences(state.preferences);
+    if (device.active && state) return {
+      preferences: clonePreferences(state.preferences),
+      llmApiToken: String(ctx.config(device).llmApiToken || '').trim(),
+    };
   }
   const preferences = states.values().next().value?.preferences;
-  return preferences ? clonePreferences(preferences) : clonePreferences(defaultPreferences);
+  return {
+    preferences: preferences ? clonePreferences(preferences) : clonePreferences(defaultPreferences),
+    llmApiToken: '',
+  };
 }
 
 function parentHardwareName(sensors: HwInfoSensor[], kind: 'cpu' | 'gpu') {
@@ -483,11 +504,15 @@ function packetFor(state: DashboardState): DashboardPacket {
       timestamp: Date.now(), clock: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date()), pcTimeOffsetMinutes: new Date().getTimezoneOffset(),
       source: 'native', fpsSource: null, connected: false,
       telemetryMessage: 'Starting BrutalDash telemetry…',
-      cpuName: 'Starting telemetry', gpuName: 'Starting telemetry',
+      cpuName: 'Starting telemetry', gpuName: 'Starting telemetry', gpus: [], llm: null,
       game: null, foreground: null, capacities: { ramGb: null, vramGb: null, storageGb: null }, metrics: blankMetrics(), alerts: [],
     };
   }
   return { ...latest, peripherals: peripheralProvider?.snapshot(), networkQuality: state.preferences.networkProbeEnabled && state.preferences.layoutPreset === 'gaming' ? networkProbes.get(state.preferences.networkProbeTarget)?.snapshot() : undefined, alerts: latest.connected ? alerts(latest.metrics, state.preferences) : [] };
+}
+
+function gpuPackets(gpus: NvidiaGpuSnapshot[]) {
+  return gpus.map(({id,displayActive,metrics}) => ({id,displayActive,...metrics}));
 }
 
 function readSensors() {
@@ -496,7 +521,28 @@ function readSensors() {
   return sensors;
 }
 
-function nativeFallback(now: number, preferences: DashboardPreferences): Omit<DashboardPacket, 'alerts'> | null {
+function validLlmSnapshot(value: unknown): LlmSnapshot | null {
+  if (!value || typeof value !== 'object') return null;
+  const snapshot = value as Partial<LlmSnapshot>;
+  if (!['ollama','lmstudio','llamacpp'].includes(snapshot.backend || '') || !['loaded','generating'].includes(snapshot.status || '') || typeof snapshot.message !== 'string') return null;
+  return snapshot as LlmSnapshot;
+}
+
+async function persistentLlmSnapshot(ctx: ExtensionContext, now: number, preferences: DashboardPreferences, apiToken: string) {
+  const current = await readLlmSnapshot(now, preferences.llmLlamaPort, apiToken);
+  const snapshot = retainLlmSnapshot(current,lastLlmSnapshot);
+  if (snapshot.status !== 'unavailable') lastLlmSnapshot = snapshot;
+  if (snapshot.status === 'loaded') {
+    const serialized = JSON.stringify(snapshot);
+    if (serialized !== persistedLlmSnapshot) {
+      persistedLlmSnapshot = serialized;
+      await ctx.kv.set(LLM_SNAPSHOT_KEY,snapshot);
+    }
+  }
+  return snapshot;
+}
+
+async function nativeFallback(ctx: ExtensionContext, now: number, preferences: DashboardPreferences, llmApiToken = ''): Promise<Omit<DashboardPacket, 'alerts'> | null> {
   const native = readNativeSystemMetrics();
   const cpuName = readProcessorName();
   nativeCpu?.update(cpuName, now);
@@ -504,7 +550,9 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
   const storage = currentStorageSpace(now);
   const disk = readDiskIoRates();
   const network = readNetworkRates(now);
-  const nvidia = readNvidiaGpuMetrics();
+  const nvidiaGpus = readNvidiaGpus();
+  const nvidia = selectNvidiaGpu(nvidiaGpus, preferences.gpuSelection);
+  const llm = preferences.layoutPreset === 'llm' ? await persistentLlmSnapshot(ctx,now,preferences,llmApiToken) : null;
   const windowsGpu = readWindowsGpuMetrics();
   const foreground = readForegroundApp();
   nativeFps?.updateTarget(gameCandidate(foreground, preferences), now);
@@ -547,7 +595,7 @@ function nativeFallback(now: number, preferences: DashboardPreferences): Omit<Da
     pcTimeOffsetMinutes: new Date(now).getTimezoneOffset(),
     source: 'native', fpsSource: frames ? 'presentmon' : null, connected: true,
     telemetryMessage: 'Using native telemetry. To switch to HWiNFO automatically, keep HWiNFO Sensors active (they may be minimized).',
-    cpuName: cpuName || 'Windows system', gpuName: nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU data unavailable'), game: game?.label || null, foreground: foregroundPacket(foreground),
+    cpuName: cpuName || 'Windows system', gpuName: nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU data unavailable'), gpus: gpuPackets(nvidiaGpus), llm, game: game?.label || null, foreground: foregroundPacket(foreground),
     capacities: { ramGb: native?.ramTotalGb ?? null, vramGb: nvidia?.vramTotalGb ?? null, storageGb: storage?.totalGb ?? null },
     metrics,
   };
@@ -567,14 +615,17 @@ async function poll(ctx: ExtensionContext) {
     networkProbes.get(target)!.update();
   }
   polling = true;
-  const preferences = pollingPreferences(ctx);
+  const {preferences, llmApiToken} = pollingSettings(ctx);
   try {
     const now = Date.now();
     const sensors = readSensors();
     if (hwinfoAvailable === false) ctx.log.info('HWiNFO shared memory recovered');
     hwinfoAvailable = true;
+    const nvidiaGpus = readNvidiaGpus();
+    const nvidia = selectNvidiaGpu(nvidiaGpus, preferences.gpuSelection);
+    const llm = preferences.layoutPreset === 'llm' ? await persistentLlmSnapshot(ctx,now,preferences,llmApiToken) : null;
     const cpu = /CPU \[#\d+\]/i;
-    const gpu = /(dGPU|GPU \[#|NVIDIA|AMD Radeon|Intel Arc)/i;
+    const gpuSensors = sensorsForGpu(sensors, nvidia?.name);
     const metrics = blankMetrics();
     const assign = (key: MetricKey, value: number | null, unit = metrics[key].unit) => {
       if (value !== null) metrics[key] = reading(value, unit);
@@ -583,18 +634,18 @@ async function poll(ctx: ExtensionContext) {
     assign('cpuTemp', sensorValue(sensors, ['CPU (Tctl/Tdie)', 'CPU Die (average)', 'CPU Package', 'Core Max'], cpu));
     assign('cpuClock', sensorValue(sensors, ['Average Effective Clock', 'Core Effective Clocks', 'P-core 0 Clock', 'Core Clocks'], cpu));
     assign('cpuPower', sensorValue(sensors, ['CPU Package Power', 'CPU Package Power (SMU)'], cpu));
-    assign('gpuUsage', sensorValue(sensors, ['GPU Core Load', 'GPU D3D Usage'], gpu));
-    assign('gpuTemp', sensorValue(sensors, ['GPU Temperature'], gpu));
-    assign('gpuHotspot', sensorValue(sensors, ['GPU Hot Spot Temperature', 'GPU Hotspot Temperature'], gpu));
-    assign('gpuClock', sensorValue(sensors, ['GPU Clock (measured)', 'GPU Clock'], gpu));
-    assign('gpuPower', sensorValue(sensors, ['GPU Power', 'GPU ASIC Power', 'GPU Board Power'], gpu));
+    assign('gpuUsage', sensorValue(gpuSensors, ['GPU Core Load', 'GPU D3D Usage']));
+    assign('gpuTemp', sensorValue(gpuSensors, ['GPU Temperature']));
+    assign('gpuHotspot', sensorValue(gpuSensors, ['GPU Hot Spot Temperature', 'GPU Hotspot Temperature']));
+    assign('gpuClock', sensorValue(gpuSensors, ['GPU Clock (measured)', 'GPU Clock']));
+    assign('gpuPower', sensorValue(gpuSensors, ['GPU Power', 'GPU ASIC Power', 'GPU Board Power']));
     const ramUsedGb = memoryGb(sensors, ['Physical Memory Used']);
     const ramAvailableGb = memoryGb(sensors, ['Physical Memory Available']);
     assign('ramUsed', ramUsedGb, 'GB');
     assign('ramPercent', sensorValue(sensors, ['Physical Memory Load']));
     const vramNames = ['GPU Memory Allocated', 'GPU D3D Memory Dedicated', 'GPU Memory Usage'];
-    const vramUsedGb = memoryGb(sensors, vramNames, gpu);
-    const vramAvailableGb = memoryGb(sensors, ['GPU Memory Available'], gpu);
+    const vramUsedGb = memoryGb(gpuSensors, vramNames);
+    const vramAvailableGb = memoryGb(gpuSensors, ['GPU Memory Available']);
     assign('vramUsed', vramUsedGb, 'GB');
     assign('vramPercent', vramUsedGb !== null && vramAvailableGb !== null ? (vramUsedGb / (vramUsedGb + vramAvailableGb)) * 100 : null);
     assign('storageRead', sensorValue(sensors, ['Read Rate'], /^Drive:/i, 'sum'));
@@ -611,7 +662,6 @@ async function poll(ctx: ExtensionContext) {
     const cpuSensors = nativeCpu?.snapshot(now) || null;
     const network = readNetworkRates(now);
     const disk = readDiskIoRates();
-    const nvidia = readNvidiaGpuMetrics();
     const windowsGpu = readWindowsGpuMetrics();
     let usedNativeFallback = false;
     const fill = (key: MetricKey, value: number | null, unit = metrics[key].unit) => {
@@ -657,12 +707,12 @@ async function poll(ctx: ExtensionContext) {
     }
     applyRanges(metrics);
     const hwCpuName = parentHardwareName(sensors, 'cpu');
-    const hwGpuName = parentHardwareName(sensors, 'gpu');
+    const hwGpuName = parentHardwareName(gpuSensors, 'gpu');
     latest = {
       timestamp: now, clock: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(now)), pcTimeOffsetMinutes: new Date(now).getTimezoneOffset(),
       source: usedNativeFallback ? 'hybrid' : 'hwinfo', fpsSource: frames ? 'presentmon' : metrics.fps.value === null ? null : 'hwinfo', connected: true, telemetryMessage: null,
       cpuName: hwCpuName !== 'CPU' ? hwCpuName : cpuName || 'Windows system',
-      gpuName: hwGpuName !== 'GPU' ? hwGpuName : nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU'), game: game?.label || null, foreground: foregroundPacket(foreground),
+      gpuName: hwGpuName !== 'GPU' ? hwGpuName : nvidia?.name || (windowsGpu ? 'Windows GPU' : 'GPU'), gpus: gpuPackets(nvidiaGpus), llm, game: game?.label || null, foreground: foregroundPacket(foreground),
       capacities: {
         ramGb: ramUsedGb !== null && ramAvailableGb !== null ? ramUsedGb + ramAvailableGb : native?.ramTotalGb ?? null,
         vramGb: vramUsedGb !== null && vramAvailableGb !== null ? vramUsedGb + vramAvailableGb : nvidia?.vramTotalGb ?? null,
@@ -680,7 +730,7 @@ async function poll(ctx: ExtensionContext) {
     if (hwinfoAvailable !== false) ctx.log.warn(`HWiNFO shared memory unavailable: ${error instanceof Error ? error.message : String(error)}`);
     hwinfoAvailable = false;
     try {
-      const fallback = nativeFallback(Date.now(), preferences);
+      const fallback = await nativeFallback(ctx,Date.now(),preferences,llmApiToken);
       if (fallback) {
         latest = fallback;
         for (const device of ctx.devices) {
@@ -705,8 +755,11 @@ async function poll(ctx: ExtensionContext) {
 }
 
 async function loadState(ctx: ExtensionContext, deviceId: string) {
-  const saved = validState(await ctx.kv.get<DashboardState>(stateKey(deviceId)));
+  const shared = validState(await ctx.kv.get<DashboardState>(DASHBOARD_STATE_KEY));
+  const legacy = validState(await ctx.kv.get<DashboardState>(stateKey(deviceId)));
+  const saved = shared || legacy;
   const state = saved || stateFromConfig(defaultState(), ctx.config(deviceId));
+  if (!shared && saved) await ctx.kv.set(DASHBOARD_STATE_KEY, saved);
   states.set(deviceId, state);
   return state;
 }
@@ -789,6 +842,15 @@ defineExtension({
     ctx.on('message', (device, message) => {
       const payload = asJson<DashboardMessage>(message);
       if (!payload) return;
+      if (payload.type === 'screenshot:transfer') {
+        if (!device.active || !device.connected || !payload.payload) return;
+        const folder = states.get(device.id)?.preferences.screenshotFolder || '';
+        void screenshots.receive(device.id, payload.payload, folder, Deno).then(filename => {
+          if (filename) device.send(json({type:'screenshot:result',payload:{id:payload.payload.id,ok:true,filename}}));
+          else device.send(json({type:'screenshot:ack',payload:{id:payload.payload.id,part:payload.payload.part,index:payload.payload.index}}));
+        }).catch(error => device.send(json({type:'screenshot:result',payload:{id:payload.payload.id,ok:false,error:error instanceof Error ? error.message : 'Screenshot could not be saved'}})));
+        return;
+      }
       if (payload.type === 'mirror:input') {
         if (mirrorClients.size > 0) mirrorBroadcast(payload);
         return;
@@ -819,7 +881,12 @@ defineExtension({
         return;
       }
       if (payload.type === 'dashboard:reset-ranges') {
-        metricRanges.clear();
+        const requested = payload.payload?.metrics;
+        if (Array.isArray(requested)) {
+          for (const key of requested) if (typeof key === 'string' && metricKeys.includes(key as MetricKey)) metricRanges.delete(key as MetricKey);
+        } else {
+          metricRanges.clear();
+        }
         return;
       }
       if (payload.type === 'dashboard:get') void sendState(ctx, device.id).catch(error => ctx.log.error('dashboard request failed', error));
@@ -838,10 +905,15 @@ defineExtension({
         .then(() => sendState(ctx, device.id))
         .catch(error => ctx.log.error('dashboard setting save failed', error));
     });
-    void poll(ctx);
-    timer = setInterval(() => void poll(ctx), POLL_INTERVAL_MS);
-    mediaTimer = setInterval(() => void pollMedia(ctx), 750);
-    ctx.log.info(`BrutalDash bridge extension started with ${POLL_INTERVAL_MS}ms telemetry polling`);
+    return ctx.kv.get<LlmSnapshot>(LLM_SNAPSHOT_KEY).then(value => {
+      lastLlmSnapshot = validLlmSnapshot(value);
+      persistedLlmSnapshot = lastLlmSnapshot ? JSON.stringify(lastLlmSnapshot) : '';
+    }).catch(error => ctx.log.warn(`Saved LLM snapshot unavailable: ${error instanceof Error ? error.message : String(error)}`)).then(() => {
+      void poll(ctx);
+      timer = setInterval(() => void poll(ctx), POLL_INTERVAL_MS);
+      mediaTimer = setInterval(() => void pollMedia(ctx), 750);
+      ctx.log.info(`BrutalDash bridge extension started with ${POLL_INTERVAL_MS}ms telemetry polling`);
+    });
   },
   async stop() {
     for (const probe of networkProbes.values()) probe.stop();

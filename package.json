@@ -1,7 +1,7 @@
 {
   "name": "pc-dashboard-bridgething",
   "private": true,
-  "version": "0.1.53",
+  "version": "0.1.60",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,7 @@
   "dependencies": {
     "@bridgething/client": "^0.12.1",
     "@bridgething/extension": "^0.12.1",
+    "html-to-image": "1.11.13",
     "preact": "^10.29.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

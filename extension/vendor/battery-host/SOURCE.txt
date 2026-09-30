@@ -1,4 +1,4 @@
-BrutalDash device battery collector, version 0.1.53.
+BrutalDash device battery collector, version 0.1.60.
 
 HaloBattery 1.11.0 providers and deduplication:
 https://github.com/HeyOkay/HaloBattery/tree/v1.11.0
@@ -25,7 +25,7 @@ Archive SHA-256: d297e5ff019966817ad8502465176139f2d3d840fa4ed84b13bed399a6ab1f1
 HID binding: hidapi 0.15.0 cp314 win_amd64 wheel. Included license choices
 and notices are in hidapi-licenses; redistribution uses the BSD license option.
 
-Polling: 30 seconds, in a persistent hidden helper. Parent closure kills the
+Polling: HID 10 seconds, Bluetooth 30 seconds, with bounded connection-change refresh, in a persistent hidden helper. Parent closure kills the
 entire helper process tree. No driver installation or vendor software needed.
 Device support remains subject to the upstream model and connection limits.
 
