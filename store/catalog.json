@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-09-30T03:50:16.442Z",
+  "updated_at": "2026-10-03T08:17:00.856Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -24,6 +24,27 @@
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.61",
+          "released_at": "2026-10-03T08:16:39Z",
+          "download": {
+            "url": "https://brutal-brutalfoundry.github.io/BrutalDash/downloads/BrutalDash-0.1.61.zip",
+            "size": 53570919,
+            "sha256": "21aeb5f693f5072eb745d31dc21f86b6b3f625739136223d2e1bfe334c815155"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1",
+              "write"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Fixed duplicate Xbox controller battery entries over Bluetooth. Use the Windows Bluetooth battery reading instead of the misleading controller API value."
+        },
         {
           "version": "0.1.60",
           "released_at": "2026-09-30T03:49:43Z",
