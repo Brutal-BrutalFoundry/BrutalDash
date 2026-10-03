@@ -88,7 +88,7 @@ def load_xinput():
 
 # HID interfaces of Bluetooth devices: classic HID {00001124-...} or HID over
 # GATT {00001812-...}, with the vendor and product id in the path
-_BT_HID = re.compile(r"\{0000(?:1124|1812)-0000-1000-8000-00805f9b34fb\}[^#]*?vid&([0-9a-f]+)_pid&([0-9a-f]{4})")
+_BT_HID = re.compile(r"\{0000(?:1124|1812)-0000-1000-8000-00805f9b34fb\}[^#]*?vid[&_](?:[0-9a-f]{4})?([0-9a-f]{4})[_&]pid[&_]([0-9a-f]{4})")
 
 
 def bluetooth_ids(paths) -> set:

@@ -1,5 +1,9 @@
 # BrutalDash
 
+## 0.1.61 (2026-10-03)
+
+- Fixed duplicate Xbox controller battery entries over Bluetooth. Use the Windows Bluetooth battery reading instead of the misleading controller API value.
+
 ## 0.1.60 (2026-09-29)
 
 - Added an LLM Monitor layout with model status, token speed, token counts, context usage, CPU, RAM, GPU readings, and total VRAM.

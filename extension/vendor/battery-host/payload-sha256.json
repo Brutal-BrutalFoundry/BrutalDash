@@ -23,7 +23,7 @@
   "providers/steelseries.py": "45e8a93c383b6deaf1dbdc1c75084f0b0b9a84d8bad19d195c682537a64feabe",
   "providers/wgi.py": "20d2f0a51039de3db1ccecd96a4a6eb1782865ca56dbd044451ee87397d6b57e",
   "providers/wlmouse.py": "6a8ca9df5f82fd80a8428512c6757c76c2bf0bbd1c81ddc17fc7130076bfdfb8",
-  "providers/xinput.py": "4a8b7534538397b24ed575c06c12ad390f8f0f6c96b0fd9d67ffcbf30f3c18eb",
+  "providers/xinput.py": "28fa7cbf5f6e1230f3c2f9b4ce031ada721ed372c89bd5fd5299b1254785829a",
   "runtime/_asyncio.pyd": "f9594a2a4f45570dbfdf1f3471194ae7b27dc117c54b9af6bc22df9c93830f8b",
   "runtime/_bz2.pyd": "b938073c85cf6b9fe80556d7899ed1901e5e60b7adea2832442376239fb36b36",
   "runtime/_ctypes.pyd": "408cc4e7a22ffa418ca52f5e13fe9268a3c50a2bc9de02b0530b555ef591bc5a",

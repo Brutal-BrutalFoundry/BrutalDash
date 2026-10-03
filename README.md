@@ -10,7 +10,7 @@ It is built for readability at a glance: near-live CPU, GPU, RAM, VRAM, disk, ne
 
 **New here?** Start with [INSTALLATION.md](INSTALLATION.md). For the full capability list, see [FEATURES.md](FEATURES.md).
 
-**Current stable release: [v0.1.60](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.60).**
+**Current stable release: [v0.1.61](https://github.com/Brutal-BrutalFoundry/BrutalDash/releases/tag/v0.1.61).**
 
 ## Screenshots
 
