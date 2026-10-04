@@ -1,7 +1,7 @@
 {
   "$schema": "https://apps.bridgething.com/schemas/catalog/v1.json",
   "schema": "catalog.v1",
-  "updated_at": "2026-10-03T08:17:00.856Z",
+  "updated_at": "2026-10-04T03:31:00.177Z",
   "repo": {
     "name": "BrutalFoundry",
     "description": "Independent software and device experiences by Brutal.",
@@ -24,6 +24,27 @@
       "homepage": "https://brutal-brutalfoundry.github.io/BrutalDash/",
       "source": "https://github.com/Brutal-BrutalFoundry/BrutalDash",
       "versions": [
+        {
+          "version": "0.1.62",
+          "released_at": "2026-10-04T03:30:41Z",
+          "download": {
+            "url": "https://brutal-brutalfoundry.github.io/BrutalDash/downloads/BrutalDash-0.1.62.zip",
+            "size": 53571872,
+            "sha256": "3fff294d3829db1d25b83c3e7829f572847349b6d051b1e89adc272a3f9be2a0"
+          },
+          "permissions": [],
+          "extension": {
+            "desktop": true,
+            "permissions": [
+              "ffi",
+              "run",
+              "net:127.0.0.1",
+              "write"
+            ]
+          },
+          "min_libbridgething_version": "0.12.1",
+          "changelog": "Improved LLM Monitor readability and card sizing. Removed the normal-view bottom gap and fixed clipped or overlapping readings with the media panel open and on shorter screens."
+        },
         {
           "version": "0.1.61",
           "released_at": "2026-10-03T08:16:39Z",
