@@ -1,5 +1,14 @@
 # BrutalDash
 
+## 0.1.62 (2026-10-03)
+
+- Enlarge LLM Monitor values, supporting readings, and labels.
+- Extend the normal LLM card grid to the bottom of the screen.
+- Keep inference counters, context details, GPU readings, and total VRAM visible with the media panel open.
+- Fix overlapping inference labels on shorter screens.
+- Restore the full LLM layout when the media panel closes.
+
+
 ## 0.1.61 (2026-10-03)
 
 - Fixed duplicate Xbox controller battery entries over Bluetooth. Use the Windows Bluetooth battery reading instead of the misleading controller API value.

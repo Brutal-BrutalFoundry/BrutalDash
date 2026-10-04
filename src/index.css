@@ -2418,3 +2418,113 @@ select {
 .dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-details .gpu-detail-heading { line-height: 14px; }
 .dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-details > div:not(.gpu-detail-heading) { line-height: 21px; }
 .dashboard.preset-gaming:not(.is-media-open) .gaming-gpu-details > small { line-height: 20px; }
+
+/* Reserve media height and scroll dense LLM cards rather than clipping them. */
+.dashboard.preset-llm.is-media-open:not(.is-clock-mode) .llm-dashboard{height:calc(100% - 146px);min-height:0;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+.dashboard.preset-llm.is-media-open.is-compact:not(.is-clock-mode) .llm-dashboard{height:calc(100% - 114px)}
+.preset-llm.is-media-open .llm-card{min-height:0;padding:6px 9px;overflow:auto;scrollbar-width:thin}
+.preset-llm.is-media-open .llm-title{font-size:9px;margin-bottom:3px}.preset-llm.is-media-open .llm-primary{margin-top:3px}.preset-llm.is-media-open .llm-primary strong{font-size:27px;line-height:1}.preset-llm.is-media-open .llm-first-token{top:26px;right:9px}.preset-llm.is-media-open .llm-first-token strong{font-size:17px}.preset-llm.is-media-open .llm-context-value strong{font-size:26px}.preset-llm.is-media-open .llm-gpu-list{gap:3px;margin-top:4px}.preset-llm.is-media-open .llm-gpu{padding:3px 0}.preset-llm.is-media-open .llm-total{margin-top:3px}.preset-llm.is-media-open .llm-system-grid{margin-top:4px;gap:4px 8px}.preset-llm.is-media-open .llm-system-grid b{font-size:16px;line-height:18px}
+
+.preset-llm.is-media-open .llm-primary{top:32px;left:9px}.preset-llm.is-media-open .llm-context-value{margin-top:5px}.preset-llm.is-media-open .llm-context p{margin:3px 0 2px;font-size:11px}.preset-llm.is-media-open .llm-context>small{font-size:9px;line-height:10px}.preset-llm.is-media-open .llm-gpus{display:flex;flex-direction:column;overflow:hidden}.preset-llm.is-media-open .llm-gpu-list{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}.preset-llm.is-media-open .llm-total{position:static;flex:none;margin-top:3px;padding:3px;font-size:9px;line-height:15px}.preset-llm.is-media-open .llm-total b{font-size:13px}.media-controls .media-mode svg{fill:none}
+
+/* Keep all inference readings visible when the media panel reduces card height. */
+.dashboard.preset-llm.is-media-open .llm-card { overflow:hidden; }
+.dashboard.preset-llm.is-media-open .llm-title { line-height:12px; }
+.dashboard.preset-llm.is-media-open .llm-primary { position:static; margin-top:4px; }
+.dashboard.preset-llm.is-media-open .llm-primary strong { line-height:28px; }
+.dashboard.preset-llm.is-media-open .llm-primary small { font-size:9px; line-height:11px; }
+.dashboard.preset-llm.is-media-open .llm-first-token { top:26px; }
+.dashboard.preset-llm.is-media-open .llm-first-token small { font-size:8px; line-height:10px; }
+.dashboard.preset-llm.is-media-open .llm-minis { display:grid; position:static; margin-top:5px; gap:4px; }
+.dashboard.preset-llm.is-media-open .llm-minis>span { padding:3px 2px; }
+.dashboard.preset-llm.is-media-open .llm-minis b { font-size:14px; line-height:16px; }
+.dashboard.preset-llm.is-media-open .llm-minis small { font-size:8px; line-height:10px; }
+.dashboard.preset-llm.is-media-open .llm-context-value { line-height:30px; margin-top:3px; }
+.dashboard.preset-llm.is-media-open .llm-context>small { max-height:none; }
+.dashboard.preset-llm.is-media-open .llm-gpu { padding:1px 0; }
+.dashboard.preset-llm.is-media-open .llm-gpu .llm-bar { margin:2px 0; height:4px; }
+.dashboard.preset-llm.is-media-open .llm-gpu-list { overflow-y:auto; }
+@media (max-height:420px) {
+ .dashboard.preset-llm:not(.is-media-open) .llm-primary { position:static; margin-top:8px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-primary strong { font-size:32px; line-height:34px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-first-token { top:36px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-minis>span { padding:4px 2px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-minis b { font-size:16px; line-height:18px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-minis small { line-height:10px; }
+}
+/* Car Thing readings use the same readable scale as the other dashboards. */
+@media (min-height:421px) {
+ .dashboard.preset-llm .llm-title { font-size:16px; line-height:20px; }
+ .dashboard.preset-llm .llm-primary strong { font-size:48px; line-height:48px; }
+ .dashboard.preset-llm .llm-primary small,.dashboard.preset-llm .llm-first-token small { font-size:12px; line-height:14px; }
+ .dashboard.preset-llm .llm-first-token strong { font-size:25px; }
+ .dashboard.preset-llm .llm-minis b { font-size:22px; line-height:24px; }
+ .dashboard.preset-llm .llm-minis small { font-size:11px; line-height:13px; }
+ .dashboard.preset-llm .llm-context-value strong { font-size:42px; }
+ .dashboard.preset-llm .llm-context-value span { font-size:22px; }
+ .dashboard.preset-llm .llm-context-value b { font-size:18px; }
+ .dashboard.preset-llm .llm-context p { font-size:16px; }
+ .dashboard.preset-llm .llm-context>small { font-size:12px; line-height:14px; max-height:28px; }
+ .dashboard.preset-llm .llm-gpu b { font-size:18px; }
+ .dashboard.preset-llm .llm-gpu span { font-size:16px; }
+ .dashboard.preset-llm .llm-total { font-size:14px; }
+ .dashboard.preset-llm .llm-total b { font-size:20px; }
+ .dashboard.preset-llm .llm-system-grid b { font-size:29px; line-height:31px; }
+ .dashboard.preset-llm .llm-system-grid small { font-size:12px; line-height:14px; }
+ .dashboard.preset-llm.is-media-open .llm-title { font-size:14px; line-height:16px; }
+ .dashboard.preset-llm.is-media-open .llm-primary strong { font-size:38px; line-height:40px; }
+ .dashboard.preset-llm.is-media-open .llm-primary small { font-size:11px; line-height:12px; }
+ .dashboard.preset-llm.is-media-open .llm-first-token { top:32px; }
+ .dashboard.preset-llm.is-media-open .llm-first-token strong { font-size:22px; }
+ .dashboard.preset-llm.is-media-open .llm-first-token small { font-size:10px; line-height:12px; }
+ .dashboard.preset-llm.is-media-open .llm-minis b { font-size:19px; line-height:21px; }
+ .dashboard.preset-llm.is-media-open .llm-minis small { font-size:10px; line-height:12px; }
+ .dashboard.preset-llm.is-media-open .llm-context-value { line-height:38px; }
+ .dashboard.preset-llm.is-media-open .llm-context-value strong { font-size:36px; }
+ .dashboard.preset-llm.is-media-open .llm-context p { font-size:14px; line-height:16px; }
+ .dashboard.preset-llm.is-media-open .llm-context>small { font-size:12px; line-height:14px; max-height:none; }
+ .dashboard.preset-llm.is-media-open .llm-gpu b { font-size:17px; }
+ .dashboard.preset-llm.is-media-open .llm-gpu span { font-size:15px; }
+ .dashboard.preset-llm.is-media-open .llm-total { font-size:13px; line-height:22px; }
+ .dashboard.preset-llm.is-media-open .llm-total b { font-size:18px; }
+ .dashboard.preset-llm.is-media-open .llm-system-grid { gap:8px 12px; margin-top:8px; }
+ .dashboard.preset-llm.is-media-open .llm-system-grid b { font-size:25px; line-height:27px; }
+ .dashboard.preset-llm.is-media-open .llm-system-grid small { font-size:11px; line-height:13px; }
+}
+/* Spread the readings through the card instead of leaving unused bottom space. */
+@media (min-height:421px) {
+ .dashboard.preset-llm .llm-inference,.dashboard.preset-llm .llm-context,.dashboard.preset-llm .llm-system,.dashboard.preset-llm .llm-gpus { display:flex; flex-direction:column; }
+ .dashboard.preset-llm .llm-title { flex:none; }
+ .dashboard.preset-llm .llm-primary { position:static; margin-top:auto; }
+ .dashboard.preset-llm .llm-minis { position:static; margin-top:8px; margin-bottom:0; flex:none; }
+ .dashboard.preset-llm .llm-first-token { top:32%; }
+ .dashboard.preset-llm .llm-context-value { margin-top:auto; flex:none; }
+ .dashboard.preset-llm .llm-context .llm-bar { flex:none; }
+ .dashboard.preset-llm .llm-context>small { margin-bottom:0; flex:none; }
+ .dashboard.preset-llm .llm-system-grid { flex:1; align-content:space-between; margin-top:10px; }
+ .dashboard.preset-llm .llm-system-grid>span:nth-child(3) b { font-size:25px; white-space:nowrap; }
+ .dashboard.preset-llm .llm-gpu-list { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:space-evenly; }
+ .dashboard.preset-llm .llm-total { position:static; flex:none; margin-top:5px; }
+}
+@media (min-height:421px) {
+ .dashboard.preset-llm.is-media-open .llm-title { font-size:16px; line-height:20px; }
+ .dashboard.preset-llm.is-media-open .llm-primary strong { font-size:44px; line-height:46px; }
+ .dashboard.preset-llm.is-media-open .llm-minis b { font-size:22px; line-height:24px; }
+ .dashboard.preset-llm.is-media-open .llm-minis small { font-size:11px; line-height:13px; }
+ .dashboard.preset-llm.is-media-open .llm-context-value { line-height:44px; }
+ .dashboard.preset-llm.is-media-open .llm-context-value strong { font-size:40px; }
+ .dashboard.preset-llm.is-media-open .llm-context p { font-size:16px; line-height:18px; }
+}
+
+@media (min-height:421px) {
+ .dashboard.preset-llm:not(.is-media-open) .llm-primary strong { font-size:56px; line-height:56px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-minis b { font-size:26px; line-height:28px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-minis small { font-size:12px; line-height:14px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-context-value strong { font-size:48px; line-height:50px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-context p { font-size:18px; line-height:21px; margin-top:8px; }
+ .dashboard.preset-llm:not(.is-media-open) .llm-system-grid>span:first-child b,.dashboard.preset-llm:not(.is-media-open) .llm-system-grid>span:last-child b { font-size:34px; line-height:36px; }
+}
+/* The normal LLM grid fills the screen below the header, down to its bottom edge. */
+.dashboard.preset-llm:not(.is-media-open):not(.is-clock-mode):not(.is-editing) { display:flex; flex-direction:column; padding-bottom:0; }
+.dashboard.preset-llm:not(.is-media-open):not(.is-clock-mode):not(.is-editing)>.dashboard-header { flex:none; }
+.dashboard.preset-llm:not(.is-media-open):not(.is-clock-mode):not(.is-editing)>.llm-dashboard { height:auto; flex:1; min-height:0; width:100%; }
