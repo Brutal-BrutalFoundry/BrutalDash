@@ -20,16 +20,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Brutal-BrutalFoundry/BrutalDash-for-CarThing
-          path: legacy-carthing
+          path: carthing-downloads
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Verify and prepare free CarThing release downloads
-        working-directory: legacy-carthing
+        working-directory: carthing-downloads
         run: node scripts/prepare-store-downloads.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: legacy-carthing/store
+          path: carthing-downloads/store
       - id: deployment
         uses: actions/deploy-pages@v4
