@@ -1,0 +1,35 @@
+name: Preserve existing CarThing catalog URLs
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/legacy-carthing-pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  legacy-catalog:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Brutal-BrutalFoundry/BrutalDash-for-CarThing
+          path: legacy-carthing
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify and prepare free CarThing release downloads
+        working-directory: legacy-carthing
+        run: node scripts/prepare-store-downloads.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: legacy-carthing/store
+      - id: deployment
+        uses: actions/deploy-pages@v4
